@@ -5,23 +5,26 @@ import torch
 from tensorly.decomposition import parafac
 
 # Reconstruct the tensor from the factors
-def reconstruct_Three_Way_Tensor(a, b, c):
+def reconstruct_Four_Way_Tensor(a, b, c, d):
     """This method reconstructs the tensor from the rank one factor matrices
     Inputs: 
         a : First factor in CP decomposition
         b : Second factor in CP decomposition
         c : Third factor in CP decomposition
+        d : Fourth factor in CP decomposition
     Output:
         x_t : Reconstructed output tensor"""
     
     x_t = 0
     #row, col = a.shape()
     for index in range(a.shape[1]):
-        x_t += torch.ger(a[:,index], b[:,index]).unsqueeze(2)*c[:,index].unsqueeze(0).unsqueeze(0)
+        Y = (torch.ger(a[:, index], b[:, index]).unsqueeze(2)*c[:, index]).unsqueeze(3)*d[:, index].unsqueeze(0).unsqueeze(0)
+        x_t += Y
+        #x_t += torch.ger(a[:,index], b[:,index]).unsqueeze(2)*c[:,index].unsqueeze(0).unsqueeze(0)
     return x_t
 
-# Compute the 3-way CP decomposition using Adam optimizer
-def three_Way_CP_Decomposition(X, rank, max_iter, l_rate, random_state):
+# Compute the 4-way CP decomposition using Adam optimizer
+def four_Way_CP_Decomposition(X, rank, max_iter, l_rate, random_state):
     """This method calculates the required gradient to change the factor matrices.
     This gradient is calculated based on the Forbenius norm between the original tensor and reconstructed tensor.
     An ADAM optimizer is used for the caluculation of gradients.
@@ -39,11 +42,12 @@ def three_Way_CP_Decomposition(X, rank, max_iter, l_rate, random_state):
     a = torch.randn((X.shape[0],rank), requires_grad=True)
     b = torch.randn((X.shape[1],rank), requires_grad=True)
     c = torch.randn((X.shape[2],rank), requires_grad=True)
-    factors = [a, b, c]
+    d = torch.randn((X.shape[3],rank), requires_grad=True)
+    factors = [a, b, c, d]
     ADAM_optimizer = torch.optim.Adam(factors, lr = l_rate)
     losses = []
     for index in range(max_iter):
-        x_t = reconstruct_Three_Way_Tensor(*factors)
+        x_t = reconstruct_Four_Way_Tensor(*factors)
         ADAM_optimizer.zero_grad()
         loss = torch.mean((X-x_t)**2)
         losses.append(loss.item())
@@ -69,7 +73,7 @@ def test_outputs(input_tensor_shape, r, max_iterations, l_rate, random_state = 0
     input_tensor = torch.randn(input_tensor_shape)
     w, factors = parafac(tensorly.tensor(input_tensor), r, max_iterations)
     print("parafac dome")
-    outputs = three_Way_CP_Decomposition(input_tensor, r, max_iterations, l_rate, random_state)
+    outputs = four_Way_CP_Decomposition(input_tensor, r, max_iterations, l_rate, random_state)
     print("3 way done")
     loss = outputs[0]
     facs = outputs[1]
@@ -81,6 +85,8 @@ def test_outputs(input_tensor_shape, r, max_iterations, l_rate, random_state = 0
     print(facs[1])
     print("c:")
     print(facs[2])
+    print("d:")
+    print(facs[3])
     print("##########")
     print("Factors from the tensorly: ")
     print("a:")
@@ -89,6 +95,8 @@ def test_outputs(input_tensor_shape, r, max_iterations, l_rate, random_state = 0
     print(factors[1])
     print("c:")
     print(factors[2])
+    print("d:")
+    print(factors[3])
     print("##########")
     print("PYTEST RESULTS: ")
     try:
@@ -106,10 +114,16 @@ def test_outputs(input_tensor_shape, r, max_iterations, l_rate, random_state = 0
         print("Third factor matched")
     except:
         print("Third factor didn't match")
+    try:
+        assert facs[3].numpy() == factors[3]
+        print("Fourth factor matched")
+    except:
+        print("Fourth factor didn't match")
 
 
-input_shape = (3, 6, 5)
+
+input_shape = (2, 2, 2, 2)
 rank = 2
-max_iter = 100
+max_iter = 1000
 learning_rate = 0.1
 test_outputs(input_shape, rank, max_iter, learning_rate)

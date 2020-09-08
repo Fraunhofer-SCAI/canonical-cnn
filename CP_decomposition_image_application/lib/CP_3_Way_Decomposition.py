@@ -5,7 +5,7 @@ import torch
 from tensorly.decomposition import parafac
 
 # Reconstruct the tensor from the factors
-def reconstruct_Three_Way_Tensor(a, b, c):
+def reconstruct_Tensor(a, b, c):
     """This method reconstructs the tensor from the rank one factor matrices
     Inputs: 
         a : First factor in CP decomposition
@@ -43,7 +43,7 @@ def three_Way_CP_Decomposition(X, rank, max_iter, l_rate, random_state):
     ADAM_optimizer = torch.optim.Adam(factors, lr = l_rate)
     losses = []
     for index in range(max_iter):
-        x_t = reconstruct_Three_Way_Tensor(*factors)
+        x_t = reconstruct_Tensor(*factors)
         ADAM_optimizer.zero_grad()
         loss = torch.mean((X-x_t)**2)
         losses.append(loss.item())
@@ -64,13 +64,10 @@ def test_outputs(input_tensor_shape, r, max_iterations, l_rate, random_state = 0
         random_state : A variable to stop the randomness. If set to integer, randomness becomes deterministic.
     Output:
     """
-    print("In test output")
     torch.manual_seed(random_state)
     input_tensor = torch.randn(input_tensor_shape)
     w, factors = parafac(tensorly.tensor(input_tensor), r, max_iterations)
-    print("parafac dome")
     outputs = three_Way_CP_Decomposition(input_tensor, r, max_iterations, l_rate, random_state)
-    print("3 way done")
     loss = outputs[0]
     facs = outputs[1]
     print("##########")
