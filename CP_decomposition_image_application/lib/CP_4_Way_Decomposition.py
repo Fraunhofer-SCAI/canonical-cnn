@@ -122,8 +122,8 @@ def test_outputs(input_tensor_shape, r, max_iterations, l_rate, random_state = 0
 
 
 
-input_shape = (2, 2, 2, 2)
-rank = 2
-max_iter = 1000
-learning_rate = 0.1
-test_outputs(input_shape, rank, max_iter, learning_rate)
+#input_shape = (2, 2, 2, 2)
+#rank = 2
+#max_iter = 1000
+#learning_rate = 0.1
+#test_outputs(input_shape, rank, max_iter, learning_rate)
