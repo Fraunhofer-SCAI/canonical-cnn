@@ -33,7 +33,7 @@ AlexNet(
   )
 )
 Computing the factors of the weight tensor
-Factors calculated in  170.60092687606812  seconds
+Factors calculated in  500.56409192085266  seconds
 Factors shapes are: 
 torch.Size([64, 64, 1, 1])
 torch.Size([64, 1, 1, 5])
