@@ -8,6 +8,18 @@ class CP_ALS():
     This class computes the Candecomp PARAFAC decomposition using 
     N-way Alternating least squares algorithm along with khatri rao product
     """
+    def unfold_tensor(self, tensor, mode):
+        """ This method unfolds the given input tensor along with the specified mode.
+        Input :
+            tensor : Input tensor
+            mode : Specified mode of unfolding
+        Output :
+            matrix : Unfolded matrix of the tensor with specified mode
+        """
+        t = tensor.transpose(mode, 0)
+        matrix = t.reshape(tensor.shape[mode], -1)
+        return matrix
+    
     def perform_Kronecker_Product(self, t1, t2):
         t1_flatten = torch.flatten(t1)
         op = torch.empty((0, ))
@@ -95,7 +107,8 @@ class CP_ALS():
         lmbds = []
         for l_iter in range(0, max_iter):
             for k in range(0, len(A)):
-                X_unfolded = torch.from_numpy(tl.unfold(tl.tensor(input_tensor), mode = k))
+                #X_unfolded = torch.from_numpy(tl.unfold(tl.tensor(input_tensor), mode = k))
+                X_unfolded = self.unfold_tensor(input_tensor, k)
                 Z = self.compute_MTTKRP(X_unfolded, A, k)
                 V = self.compute_V_Matrix(A, k)
                 A_k = torch.matmul(Z, torch.pinverse(V))
