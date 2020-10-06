@@ -20,27 +20,60 @@ class CP_ALS():
         matrix = t.reshape(tensor.shape[mode], -1)
         return matrix
     
-    def perform_Kronecker_Product(self, t1, t2):
-        t1_flatten = torch.flatten(t1)
-        op = torch.empty((0, ))
-        for element in t1_flatten:
-            output = element*t2
-            op = torch.cat((op, output))
-        return op
+    #def perform_Kronecker_Product(self, t1, t2):
+    #    t1_flatten = torch.flatten(t1)
+    #    op = torch.empty((0, ))
+    #    for element in t1_flatten:
+    #        output = element*t2
+    #        op = torch.cat((op, output))
+    #    return op
     
-    def perform_Khatri_Rao_Product(self, t1, t2):
-        # Check for criteria if the columns of both matrices are same
-        r1, c1 = t1.shape
-        r2, c2 = t2.shape
-        if c1 != c2:
-            print("Number of columns are different. Product can't be performed")
+    #def perform_Khatri_Rao_Product(self, t1, t2):
+    #    # Check for criteria if the columns of both matrices are same
+    #    r1, c1 = t1.shape
+    #    r2, c2 = t2.shape
+    #    if c1 != c2:
+    #        print("Number of columns are different. Product can't be performed")
+    #        return 0
+    #    opt = torch.empty((r1*r2, c1))
+    #    for col_no in range(0, t1.shape[-1]):
+    #        x = self.perform_Kronecker_Product(t1[:, col_no], t2[:, col_no])
+    #        opt[:, col_no] = x
+    #    return opt
+
+    def perform_Kronecker_Product(self, A, B):
+        """ 
+        This method performs the kronecker product of the two matrices
+        The method is adaption of the method proposed in https://discuss.pytorch.org/t/kronecker-product/3919/10
+        Input : 
+            A : Input matrix 1
+            B : Input matrix 2
+        Output : 
+            Output is the resultant matrix after kronecker product
+        """
+        return torch.einsum("ab,cd->acbd", A, B).view(A.size(0)*B.size(0),  A.size(1)*B.size(1))
+    
+    def perform_Khatri_Rao_Product(self, A, B):
+        """
+        This methods performs the Khatri Rao product as it is the column wise kronecker product
+        Input : 
+            A : Input matrix 1
+            B : Input matrix 2
+        Output : 
+            result : The resultant Khatri-Rao product matrix
+        """
+        if A.shape[1] != B.shape[1]:
+            print("Inputs must have same number of columns")
             return 0
-        opt = torch.empty((r1*r2, c1))
-        for col_no in range(0, t1.shape[-1]):
-            x = self.perform_Kronecker_Product(t1[:, col_no], t2[:, col_no])
-            opt[:, col_no] = x
-        return opt
-    
+        result = None
+        for col in range(A.shape[1]):
+            res = self.perform_Kronecker_Product(A[:, col].unsqueeze(0), B[:, col].unsqueeze(0))
+            if col == 0:
+                result = res
+            else:
+                result = torch.cat((result, res), dim = 0)
+        return result.T
+
     def compute_MTTKRP(self, tensor_matrix, A, k_value):
         """
         This method computes the Matricized Tensor Times Khatri-Rao product
@@ -107,7 +140,6 @@ class CP_ALS():
         lmbds = []
         for l_iter in range(0, max_iter):
             for k in range(0, len(A)):
-                #X_unfolded = torch.from_numpy(tl.unfold(tl.tensor(input_tensor), mode = k))
                 X_unfolded = self.unfold_tensor(input_tensor, k)
                 Z = self.compute_MTTKRP(X_unfolded, A, k)
                 V = self.compute_V_Matrix(A, k)

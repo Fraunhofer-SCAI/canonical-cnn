@@ -22,13 +22,24 @@ class pytest_ALS():
         self.random_state = random_state
         self.cp_als = CP_ALS()
     
-    def pytest_Unfolding(self, mode):
-        u1 = tl.unfold(tl.tensor(self.X_tensor), mode)
-        u2 = self.cp_als.unfold_tensor(self.X_tensor, mode).detach().cpu().numpy()
-        assert u1.all() == u2.all()
-        print()
-        print("******* UNFOLDING TESTCASE PASSED *******")
-        print()
+    def pytest_Unfolding(self):
+        shapes = [(3, 3, 2), (3, 4, 3, 2), (3, 4, 3, 3, 2)]
+        for shape in shapes:
+            print()
+            print("Testing for shape: ", shape)
+            print()
+            Tensor = torch.randn(shape)
+            range_val = len(shape)
+            for col_no in range(0, range_val):
+                print()
+                print("\t Mode: ", col_no)
+                print()
+                u1 = tl.unfold(tl.tensor(Tensor), col_no)
+                u2 = self.cp_als.unfold_tensor(Tensor, col_no).detach().cpu().numpy()
+                assert u1.all() == u2.all()
+                print()
+                print("******* UNFOLDING TESTCASE PASSED *******")
+                print()
 
     def pytest_Reconstruction(self, init_type):
         A, lmbds = self.cp_als.compute_ALS(self.X_tensor, self.max_iter, self.rank)
@@ -50,14 +61,13 @@ r_state = 0
 max_iter = 1000     
 r = 3
 ptest_ALS = pytest_ALS(ip_shape, r_state, max_iter, r)
-mode = 2
 print()
 print("TESTCASE 1 : Testing the unfolding of the matrix......")
-ptest_ALS.pytest_Unfolding(mode)
+ptest_ALS.pytest_Unfolding()
 print()
-print("TESTCASE 2 : Testing the reconstruction of tensor from factors.......")
-ptest_ALS.pytest_Reconstruction('random')
-print()
+#print("TESTCASE 2 : Testing the reconstruction of tensor from factors.......")
+#ptest_ALS.pytest_Reconstruction('random')
+#print()
 
 ## Defining input parameters and also creating input
 #ip_shape = (3, 3, 3)
