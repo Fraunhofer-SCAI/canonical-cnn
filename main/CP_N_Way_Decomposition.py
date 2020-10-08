@@ -8,6 +8,24 @@ class CP_ALS():
     This class computes the Candecomp PARAFAC decomposition using 
     N-way Alternating least squares algorithm along with khatri rao product
     """
+    def moveaxis(self, tensor, source, destination):
+        """
+        This method is from the implementation given in pytorch https://github.com/pytorch/pytorch/issues/36048#issuecomment-652786245
+        Input : 
+            tensor : Input tensor
+            source : First axis to move
+            destination : Second axis to replace the first one
+        Output :
+            Output tensor to where the axis is moved
+        """
+        dim = tensor.dim()
+        perm = list(range(dim))
+        if destination < 0:
+            destination += dim
+        perm.pop(source)
+        perm.insert(destination, source)
+        return tensor.permute(*perm)
+    
     def unfold_tensor(self, tensor, mode):
         """ This method unfolds the given input tensor along with the specified mode.
         Input :
@@ -16,7 +34,7 @@ class CP_ALS():
         Output :
             matrix : Unfolded matrix of the tensor with specified mode
         """
-        t = tensor.transpose(mode, 0)
+        t = self.moveaxis(tensor, mode, 0)
         matrix = t.reshape(tensor.shape[mode], -1)
         return matrix
     
