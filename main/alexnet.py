@@ -49,7 +49,7 @@ class advanced_AlexNet():
         AlexNet_model = torch.hub.load('pytorch/vision:v0.6.0', 'alexnet', pretrained=True)
         AlexNet_model.classifier[4] = torch.nn.Linear(4096,1024)
         AlexNet_model.classifier[6] = torch.nn.Linear(1024,10)
-        AlexNet_model.classifier = torch.nn.Sequential(*list(AlexNet_model.classifier) + [torch.nn.Softmax(10)])
+        AlexNet_model.classifier = torch.nn.Sequential(*list(AlexNet_model.classifier)) #+ [torch.nn.Softmax(10)])
         print("### Alexnet model loaded and locked", flush=True)
         print("Before changing", flush=True)
         print(AlexNet_model.eval(), flush=True)
@@ -66,7 +66,7 @@ class advanced_AlexNet():
         """
         second_weight_tensor = AlexNet_model.features[3].weight.data
         max_iter = 100
-        r = 64
+        r = 45
         r_state = 0
         cp = CP_ALS()
         print("Computing the factors of the weight tensor", flush=True)
@@ -116,6 +116,7 @@ class advanced_AlexNet():
 
             Output :
         """
+        torch.autograd.set_detect_anomaly(True)
         trainloader, testloader, classes = self.load_CIFAR_Data()
         AlexNet_model = self.get_Alexnet_Model()
         layer = 3
@@ -123,14 +124,16 @@ class advanced_AlexNet():
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         print(device, flush=True)
         AlexNet_model.to(device)
-        #criterion = torch.nn.CrossEntropyLoss()
-        criterion = torch.nn.MSELoss()
-        optimizer = optim.SGD(AlexNet_model.parameters(), lr=0.001, momentum=0.01)
+        criterion = torch.nn.CrossEntropyLoss()
+        #criterion = torch.nn.MSELoss()
+        optimizer = optim.SGD(AlexNet_model.parameters(), lr=1e-5, momentum=0.01)
         print("### Optimizer loaded and locked", flush=True)
         print("### Training started ", flush=True)
-        for epoch in range(2):  
+        #torch.autograd.detect_anomaly(True)
+        for epoch in range(100):  
             running_loss = 0.0
             for i, data in enumerate(trainloader, 0):
+                #with torch.autograd.detect_anomaly():
                 inputs, labels = data[0].to(device), data[1].to(device)
                 optimizer.zero_grad()
                 output = AlexNet_model(inputs)
@@ -176,7 +179,8 @@ class advanced_AlexNet():
         print('Average accuracy = ', avg)
         return 0
 
-
+adv_AN = advanced_AlexNet()
+adv_AN.train_Alexnet()
 
 
 

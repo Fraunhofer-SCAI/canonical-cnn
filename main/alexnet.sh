@@ -12,4 +12,5 @@ source /home/lveeramacheneni/.bashrc
 conda activate /home/lveeramacheneni/lconda_env
 echo Modules loaded....
 
-CUDA_VISIBLE_DEVICES=4,5 /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/alexnet/alexnet.py
+CUDA_VISIBLE_DEVICES=4,5 /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/main/alexnet.py
+/alexnet.py

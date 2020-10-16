@@ -103,11 +103,11 @@ class CP_ALS():
         Output : 
             B : Resultant MTTKRP matrix
         """
-        A_matrix = copy.deepcopy(A)
-        A_matrix.pop(k_value)
-        krp_matrix = A_matrix[0]
-        for index in range(1, len(A_matrix)):
-            krp_matrix = self.perform_Khatri_Rao_Product(krp_matrix, A_matrix[index])
+        #A_matrix = copy.deepcopy(A)
+        #A_matrix.pop(k_value)
+        krp_matrix = A[0]
+        for index in range(1, len(A)):
+            krp_matrix = self.perform_Khatri_Rao_Product(krp_matrix, A[index])
         B = torch.matmul(tensor_matrix, krp_matrix)
         return B
     
@@ -121,11 +121,11 @@ class CP_ALS():
         Output : 
             v : Resultant V matrix after the hadamard product
         """
-        A_matrix = copy.deepcopy(A)
-        A_matrix.pop(k_value)
-        v = torch.matmul(A_matrix[0].T, A_matrix[0])
-        for index in range(1, len(A_matrix)):
-            p = torch.matmul(A_matrix[index].T, A_matrix[index])
+        #A_matrix = copy.deepcopy(A)
+        #A_matrix.pop(k_value)
+        v = torch.matmul(A[0].T, A[0])
+        for index in range(1, len(A)):
+            p = torch.matmul(A[index].T, A[index])
             v = v*p
         return v
     
@@ -159,18 +159,20 @@ class CP_ALS():
         for l_iter in range(0, max_iter):
             for k in range(0, len(A)):
                 X_unfolded = self.unfold_tensor(input_tensor, k)
+                A.pop(k)
                 Z = self.compute_MTTKRP(X_unfolded, A, k)
                 V = self.compute_V_Matrix(A, k)
                 A_k = torch.matmul(Z, torch.pinverse(V))
-                l = torch.norm(A_k, dim=0)
-                d_l = np.zeros((rank, rank))
-                np.fill_diagonal(d_l, l)
+                #l = torch.norm(A_k, dim=0)
+                #d_l = np.zeros((rank, rank))
+                #np.fill_diagonal(d_l, l)
                 #A_k = np.dot(A_k, np.linalg.pinv(d_l))
-                if l_iter == 0:
-                    lmbds.append(np.linalg.norm(l))
-                else:
-                    lmbds[k] = np.linalg.norm(l)
-                A[k] = A_k
+                #if l_iter == 0:
+                #    lmbds.append(np.linalg.norm(l))
+                #else:
+                #    lmbds[k] = np.linalg.norm(l)
+                #A[k] = A_k
+                A.insert(k, A_k)
         return A, lmbds
     
     def reconstruct_tensor(self, factors, norm, rank, ip_shape):
