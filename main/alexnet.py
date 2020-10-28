@@ -7,6 +7,9 @@ import torchvision.transforms as transforms
 import torch.optim as optim
 import torch.nn as nn
 from CP_N_Way_Decomposition import CP_ALS
+import matplotlib 
+matplotlib.use('Agg')
+import pylab as plt
 #from tensorly.decomposition import parafac
 #import tensorly as tl
 print("### Libraries loaded and locked", flush=True)
@@ -25,12 +28,13 @@ class advanced_AlexNet():
             testloader : batch of testing images
             classes : Number of classes
         """
-        transform = transforms.Compose([transforms.Resize(256),
-                                        transforms.CenterCrop(224),
+        transform = transforms.Compose([transforms.Resize(256), # no resize
+                                        transforms.CenterCrop(224), # center crop
                                         transforms.ToTensor(),
                                         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                                         ])
         train_data = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+
         trainloader = torch.utils.data.DataLoader(train_data, batch_size=4, shuffle=True, num_workers=2)
         test_data = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
         testloader = torch.utils.data.DataLoader(test_data, batch_size=4, shuffle=False, num_workers=2)
@@ -66,16 +70,13 @@ class advanced_AlexNet():
         """
         second_weight_tensor = AlexNet_model.features[3].weight.data
         max_iter = 100
-        r = 45
+        r = 200
         r_state = 0
         cp = CP_ALS()
         print("Computing the factors of the weight tensor", flush=True)
         start = time.time()
         A, lmbds = cp.compute_ALS(second_weight_tensor, max_iter, r)
         end = time.time()
-        #x = parafac(tl.tensor(second_weight_tensor), rank=r, normalize_factors=False, init='random', random_state=r_state, n_iter_max= max_iter)
-        #A = x[1]
-        #K_t, K_s, K_y, K_x = torch.from_numpy(A[0]), torch.from_numpy(A[1]), torch.from_numpy(A[2]), torch.from_numpy(A[3])
         print("Factors calculated in ", end-start," seconds", flush=True)
         print("Factors shapes are: ", flush=True)
         K_t, K_s, K_y, K_x = A[0], A[1], A[2], A[3]
@@ -108,6 +109,39 @@ class advanced_AlexNet():
         print(AlexNet_model.eval(), flush=True)
         return AlexNet_model
     
+    def plot_grad_flow(self, ave_grads, layers, epoch_no, l_rate):
+        """
+        The method is implemented based on https://discuss.pytorch.org/t/check-gradient-flow-in-network/15063/7
+        """
+        #ave_grads = []
+        #layers = []
+        #for n, p in named_parameters:
+        #    if(p.requires_grad) and ("bias" not in n):
+        #        layers.append(n)
+        #        ave_grads.append(p.grad.abs().mean())
+        
+        plt.figure(figsize=(20, 20))
+        #for i in range(0, len(ave_grads)):
+        plt.plot(range(0, len(ave_grads)), ave_grads, c="r")
+        plt.hlines(0, 0, len(ave_grads[0])+1, linewidth=1, color="k" )
+        plt.xticks(range(0,len(ave_grads[0]), 1), layers[0], rotation="vertical")
+        plt.xlim(xmin=0, xmax=len(ave_grads[0]))
+        plt.xlabel("Layers")
+        plt.ylabel("average gradient")
+        plt.title("Gradient flow")
+        plt.grid(True)
+        name = "Grad_flow_epoch_"+str(epoch_no)+".jpg"
+        plt.savefig(name)
+
+    def get_avg_gradients(self, named_params):
+        ave_grads = []
+        layers = []
+        for n, p in named_params:
+            if (p.requires_grad) and ("bias" not in n):
+                layers.append(n)
+                ave_grads.append(p.grad.abs().mean())
+        return ave_grads, layers
+
     def train_Alexnet(self):
         """ This method acts as meta method, becuase this method loads the dataset, 
             loads alexnet, computes the CP decomposition of specified layer and then trains the alexnet
@@ -116,7 +150,7 @@ class advanced_AlexNet():
 
             Output :
         """
-        torch.autograd.set_detect_anomaly(True)
+        #torch.autograd.set_detect_anomaly(True)
         trainloader, testloader, classes = self.load_CIFAR_Data()
         AlexNet_model = self.get_Alexnet_Model()
         layer = 3
@@ -126,12 +160,16 @@ class advanced_AlexNet():
         AlexNet_model.to(device)
         criterion = torch.nn.CrossEntropyLoss()
         #criterion = torch.nn.MSELoss()
-        optimizer = optim.SGD(AlexNet_model.parameters(), lr=1e-5, momentum=0.01)
+        l_rate=0.00002
+        optimizer = optim.SGD(AlexNet_model.parameters(), lr=l_rate, momentum=0.02)
         print("### Optimizer loaded and locked", flush=True)
         print("### Training started ", flush=True)
         #torch.autograd.detect_anomaly(True)
-        for epoch in range(100):  
+        for epoch in range(10):
+            print("Epoch: ", epoch, flush=True)  
             running_loss = 0.0
+            avg_grads = []
+            layers = []
             for i, data in enumerate(trainloader, 0):
                 #with torch.autograd.detect_anomaly():
                 inputs, labels = data[0].to(device), data[1].to(device)
@@ -139,12 +177,19 @@ class advanced_AlexNet():
                 output = AlexNet_model(inputs)
                 loss = criterion(output, labels)
                 loss.backward()
+                if i%800 == 0:
+                    grads, lyr = self.get_avg_gradients(AlexNet_model.named_parameters())
+                    #print(grads)
+                    avg_grads.append(grads)
+                    layers.append(lyr)
                 optimizer.step()
                 running_loss += loss.item()
                 if i % 2000 == 1999:   
                     print('[%d, %5d] loss: %.3f' %
-                        (epoch + 1, i + 1, running_loss / 2000))
+                        (epoch + 1, i + 1, running_loss / 2000), flush=True)
                     running_loss = 0.0
+                
+            self.plot_grad_flow(avg_grads, layers, epoch, l_rate)
         print('Finished Training of AlexNet', flush=True)
         correct = 0
         total = 0
