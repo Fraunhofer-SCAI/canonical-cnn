@@ -1,0 +1,4 @@
+Using cache found in /home/lveeramacheneni/.cache/torch/hub/pytorch_vision_v0.6.0
+/home/lveeramacheneni/network-compression/main/alexnet.py:188: UserWarning: torch.nn.utils.clip_grad_norm is now deprecated in favor of torch.nn.utils.clip_grad_norm_.
+  nn.utils.clip_grad_norm(AlexNet_model.parameters(), 1)
+/var/spool/slurm/d/job1511110/slurm_script: line 16: /alexnet.py: No such file or directory

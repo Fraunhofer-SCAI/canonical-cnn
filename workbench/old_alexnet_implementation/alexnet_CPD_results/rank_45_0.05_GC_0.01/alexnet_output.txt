@@ -1,0 +1,166 @@
+Modules loaded....
+### Libraries loaded and locked
+Files already downloaded and verified
+Files already downloaded and verified
+### Dataset loaded and locked
+### Alexnet model loaded and locked
+Before changing
+AlexNet(
+  (features): Sequential(
+    (0): Conv2d(3, 64, kernel_size=(11, 11), stride=(4, 4), padding=(2, 2))
+    (1): ReLU(inplace=True)
+    (2): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (3): Conv2d(64, 192, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2))
+    (4): ReLU(inplace=True)
+    (5): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (6): Conv2d(192, 384, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (7): ReLU(inplace=True)
+    (8): Conv2d(384, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (9): ReLU(inplace=True)
+    (10): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (11): ReLU(inplace=True)
+    (12): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+  )
+  (avgpool): AdaptiveAvgPool2d(output_size=(6, 6))
+  (classifier): Sequential(
+    (0): Dropout(p=0.5, inplace=False)
+    (1): Linear(in_features=9216, out_features=4096, bias=True)
+    (2): ReLU(inplace=True)
+    (3): Dropout(p=0.5, inplace=False)
+    (4): Linear(in_features=4096, out_features=1024, bias=True)
+    (5): ReLU(inplace=True)
+    (6): Linear(in_features=1024, out_features=10, bias=True)
+  )
+)
+Rank is :  45
+Computing the factors of the weight tensor
+Factors calculated in  6.197036981582642  seconds
+Factors shapes are: 
+torch.Size([45, 64, 1, 1])
+torch.Size([45, 1, 1, 5])
+torch.Size([1, 45, 5, 1])
+torch.Size([192, 45, 1, 1])
+ABC
+Conv2d(45, 64, kernel_size=(1, 1), stride=(1, 1), padding=(2, 2), bias=False)
+Loading the values: 
+Values are loaded
+After changing
+AlexNet(
+  (features): Sequential(
+    (0): Conv2d(3, 64, kernel_size=(11, 11), stride=(4, 4), padding=(2, 2))
+    (1): ReLU(inplace=True)
+    (2): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (3): Sequential(
+      (K_s): Conv2d(45, 64, kernel_size=(1, 1), stride=(1, 1), padding=(2, 2), bias=False)
+      (K_y): Conv2d(1, 45, kernel_size=(1, 5), stride=(1, 1), padding=(2, 2), bias=False)
+      (K_x): Conv2d(45, 1, kernel_size=(5, 1), stride=(1, 1), padding=(2, 2), bias=False)
+      (K_t): Conv2d(192, 45, kernel_size=(1, 1), stride=(1, 1), padding=(2, 2), bias=False)
+    )
+    (4): ReLU(inplace=True)
+    (5): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (6): Conv2d(192, 384, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (7): ReLU(inplace=True)
+    (8): Conv2d(384, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (9): ReLU(inplace=True)
+    (10): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (11): ReLU(inplace=True)
+    (12): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+  )
+  (avgpool): AdaptiveAvgPool2d(output_size=(6, 6))
+  (classifier): Sequential(
+    (0): Dropout(p=0.5, inplace=False)
+    (1): Linear(in_features=9216, out_features=4096, bias=True)
+    (2): ReLU(inplace=True)
+    (3): Dropout(p=0.5, inplace=False)
+    (4): Linear(in_features=4096, out_features=1024, bias=True)
+    (5): ReLU(inplace=True)
+    (6): Linear(in_features=1024, out_features=10, bias=True)
+  )
+)
+cuda:0
+Learning rate:  0.05
+### Optimizer loaded and locked
+### Training started 
+Epoch:  0
+[1,  2000] loss: 2.401
+[1,  4000] loss: 2.014
+[1,  6000] loss: 1.873
+[1,  8000] loss: 1.813
+[1, 10000] loss: 1.761
+[1, 12000] loss: 1.703
+Epoch:  1
+[2,  2000] loss: 1.609
+[2,  4000] loss: 1.591
+[2,  6000] loss: 1.541
+[2,  8000] loss: 1.507
+[2, 10000] loss: 1.493
+[2, 12000] loss: 1.468
+Epoch:  2
+[3,  2000] loss: 1.360
+[3,  4000] loss: 1.348
+[3,  6000] loss: 1.343
+[3,  8000] loss: 1.337
+[3, 10000] loss: 1.299
+[3, 12000] loss: 1.305
+Epoch:  3
+[4,  2000] loss: 1.173
+[4,  4000] loss: 1.182
+[4,  6000] loss: 1.166
+[4,  8000] loss: 1.179
+[4, 10000] loss: 1.149
+[4, 12000] loss: 1.168
+Epoch:  4
+[5,  2000] loss: 1.005
+[5,  4000] loss: 0.995
+[5,  6000] loss: 1.001
+[5,  8000] loss: 1.015
+[5, 10000] loss: 1.030
+[5, 12000] loss: 1.029
+Epoch:  5
+[6,  2000] loss: 0.826
+[6,  4000] loss: 0.835
+[6,  6000] loss: 0.880
+[6,  8000] loss: 0.880
+[6, 10000] loss: 0.878
+[6, 12000] loss: 0.903
+Epoch:  6
+[7,  2000] loss: 0.663
+[7,  4000] loss: 0.681
+[7,  6000] loss: 0.734
+[7,  8000] loss: 0.731
+[7, 10000] loss: 0.763
+[7, 12000] loss: 0.758
+Epoch:  7
+[8,  2000] loss: 0.504
+[8,  4000] loss: 0.590
+[8,  6000] loss: 0.557
+[8,  8000] loss: 0.617
+[8, 10000] loss: 0.602
+[8, 12000] loss: 0.682
+Epoch:  8
+[9,  2000] loss: 0.339
+[9,  4000] loss: 0.364
+[9,  6000] loss: 0.415
+[9,  8000] loss: 0.455
+[9, 10000] loss: 0.433
+[9, 12000] loss: 0.511
+Epoch:  9
+[10,  2000] loss: 0.194
+[10,  4000] loss: 0.236
+[10,  6000] loss: 0.234
+[10,  8000] loss: 0.271
+[10, 10000] loss: 0.262
+[10, 12000] loss: 0.263
+Finished Training of AlexNet
+Accuracy of the network on the 10000 test images: 61 %
+Accuracy of Airplane : 70 %
+Accuracy of   Car : 76 %
+Accuracy of  Bird : 49 %
+Accuracy of   Cat : 42 %
+Accuracy of  Deer : 48 %
+Accuracy of   Dog : 50 %
+Accuracy of  Frog : 73 %
+Accuracy of Horse : 69 %
+Accuracy of  Ship : 72 %
+Accuracy of Truck : 59 %
+Average accuracy =  61.239999999999995

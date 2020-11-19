@@ -1,0 +1,214 @@
+Modules loaded....
+### Libraries loaded and locked
+Files already downloaded and verified
+Files already downloaded and verified
+### Dataset loaded and locked
+### Alexnet model loaded and locked
+Before changing
+AlexNet(
+  (features): Sequential(
+    (0): Conv2d(3, 64, kernel_size=(11, 11), stride=(4, 4), padding=(2, 2))
+    (1): ReLU(inplace=True)
+    (2): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (3): Conv2d(64, 192, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2))
+    (4): ReLU(inplace=True)
+    (5): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (6): Conv2d(192, 384, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (7): ReLU(inplace=True)
+    (8): Conv2d(384, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (9): ReLU(inplace=True)
+    (10): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (11): ReLU(inplace=True)
+    (12): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+  )
+  (avgpool): AdaptiveAvgPool2d(output_size=(6, 6))
+  (classifier): Sequential(
+    (0): Dropout(p=0.5, inplace=False)
+    (1): Linear(in_features=9216, out_features=4096, bias=True)
+    (2): ReLU(inplace=True)
+    (3): Dropout(p=0.5, inplace=False)
+    (4): Linear(in_features=4096, out_features=1024, bias=True)
+    (5): ReLU(inplace=True)
+    (6): Linear(in_features=1024, out_features=10, bias=True)
+  )
+)
+Computing the factors of the weight tensor
+Factors calculated in  0.6066737174987793  seconds
+Factors shapes are: 
+torch.Size([4, 64, 1, 1])
+torch.Size([4, 1, 1, 5])
+torch.Size([1, 4, 5, 1])
+torch.Size([192, 4, 1, 1])
+ABC
+Conv2d(4, 64, kernel_size=(1, 1), stride=(1, 1), padding=(2, 2), bias=False)
+Loading the values: 
+Values are loaded
+After changing
+AlexNet(
+  (features): Sequential(
+    (0): Conv2d(3, 64, kernel_size=(11, 11), stride=(4, 4), padding=(2, 2))
+    (1): ReLU(inplace=True)
+    (2): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (3): Sequential(
+      (K_s): Conv2d(4, 64, kernel_size=(1, 1), stride=(1, 1), padding=(2, 2), bias=False)
+      (K_y): Conv2d(1, 4, kernel_size=(1, 5), stride=(1, 1), padding=(2, 2), bias=False)
+      (K_x): Conv2d(4, 1, kernel_size=(5, 1), stride=(1, 1), padding=(2, 2), bias=False)
+      (K_t): Conv2d(192, 4, kernel_size=(1, 1), stride=(1, 1), padding=(2, 2), bias=False)
+    )
+    (4): ReLU(inplace=True)
+    (5): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (6): Conv2d(192, 384, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (7): ReLU(inplace=True)
+    (8): Conv2d(384, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (9): ReLU(inplace=True)
+    (10): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (11): ReLU(inplace=True)
+    (12): MaxPool2d(kernel_size=3, stride=2, padding=0, dilation=1, ceil_mode=False)
+  )
+  (avgpool): AdaptiveAvgPool2d(output_size=(6, 6))
+  (classifier): Sequential(
+    (0): Dropout(p=0.5, inplace=False)
+    (1): Linear(in_features=9216, out_features=4096, bias=True)
+    (2): ReLU(inplace=True)
+    (3): Dropout(p=0.5, inplace=False)
+    (4): Linear(in_features=4096, out_features=1024, bias=True)
+    (5): ReLU(inplace=True)
+    (6): Linear(in_features=1024, out_features=10, bias=True)
+  )
+)
+cuda:0
+### Optimizer loaded and locked
+### Training started 
+[1,  2000] loss: 2.039
+[1,  4000] loss: 1.801
+[1,  6000] loss: 1.668
+[1,  8000] loss: 1.593
+[1, 10000] loss: 1.514
+[1, 12000] loss: 1.490
+[2,  2000] loss: 1.383
+[2,  4000] loss: 1.370
+[2,  6000] loss: 1.333
+[2,  8000] loss: 1.342
+[2, 10000] loss: 1.288
+[2, 12000] loss: 1.280
+[3,  2000] loss: 1.152
+[3,  4000] loss: 1.171
+[3,  6000] loss: 1.161
+[3,  8000] loss: 1.149
+[3, 10000] loss: 1.160
+[3, 12000] loss: 1.117
+[4,  2000] loss: 0.999
+[4,  4000] loss: 1.025
+[4,  6000] loss: 1.016
+[4,  8000] loss: 0.996
+[4, 10000] loss: 1.004
+[4, 12000] loss: 0.996
+[5,  2000] loss: 0.837
+[5,  4000] loss: 0.848
+[5,  6000] loss: 0.873
+[5,  8000] loss: 0.876
+[5, 10000] loss: 0.867
+[5, 12000] loss: 0.894
+[6,  2000] loss: 0.667
+[6,  4000] loss: 0.715
+[6,  6000] loss: 0.716
+[6,  8000] loss: 0.743
+[6, 10000] loss: 0.734
+[6, 12000] loss: 0.751
+[7,  2000] loss: 0.499
+[7,  4000] loss: 0.562
+[7,  6000] loss: 0.587
+[7,  8000] loss: 0.610
+[7, 10000] loss: 0.608
+[7, 12000] loss: 0.639
+[8,  2000] loss: 0.384
+[8,  4000] loss: 0.421
+[8,  6000] loss: 0.474
+[8,  8000] loss: 0.476
+[8, 10000] loss: 0.471
+[8, 12000] loss: 0.479
+[9,  2000] loss: 0.282
+[9,  4000] loss: 0.328
+[9,  6000] loss: 0.355
+[9,  8000] loss: 0.365
+[9, 10000] loss: 0.396
+[9, 12000] loss: 0.386
+[10,  2000] loss: 0.214
+[10,  4000] loss: 0.257
+[10,  6000] loss: 0.262
+[10,  8000] loss: 0.266
+[10, 10000] loss: 0.309
+[10, 12000] loss: 0.317
+[11,  2000] loss: 0.196
+[11,  4000] loss: 0.181
+[11,  6000] loss: 0.206
+[11,  8000] loss: 0.220
+[11, 10000] loss: 0.224
+[11, 12000] loss: 0.269
+[12,  2000] loss: 0.134
+[12,  4000] loss: 0.158
+[12,  6000] loss: 0.177
+[12,  8000] loss: 0.197
+[12, 10000] loss: 0.194
+[12, 12000] loss: 0.198
+[13,  2000] loss: 0.121
+[13,  4000] loss: 0.129
+[13,  6000] loss: 0.160
+[13,  8000] loss: 0.164
+[13, 10000] loss: 0.139
+[13, 12000] loss: 0.159
+[14,  2000] loss: 0.102
+[14,  4000] loss: 0.125
+[14,  6000] loss: 0.118
+[14,  8000] loss: 0.125
+[14, 10000] loss: 0.142
+[14, 12000] loss: 0.140
+[15,  2000] loss: 0.083
+[15,  4000] loss: 0.099
+[15,  6000] loss: 0.102
+[15,  8000] loss: 0.132
+[15, 10000] loss: 0.105
+[15, 12000] loss: 0.099
+[16,  2000] loss: 0.089
+[16,  4000] loss: 0.087
+[16,  6000] loss: 0.078
+[16,  8000] loss: 0.113
+[16, 10000] loss: 0.104
+[16, 12000] loss: 0.096
+[17,  2000] loss: 0.053
+[17,  4000] loss: 0.081
+[17,  6000] loss: 0.082
+[17,  8000] loss: 0.079
+[17, 10000] loss: 0.099
+[17, 12000] loss: 0.076
+[18,  2000] loss: 0.032
+[18,  4000] loss: 0.079
+[18,  6000] loss: 0.080
+[18,  8000] loss: 0.070
+[18, 10000] loss: 0.062
+[18, 12000] loss: 0.085
+[19,  2000] loss: 0.064
+[19,  4000] loss: 0.063
+[19,  6000] loss: 0.052
+[19,  8000] loss: 0.073
+[19, 10000] loss: 0.062
+[19, 12000] loss: 0.072
+[20,  2000] loss: 0.028
+[20,  4000] loss: 0.036
+[20,  6000] loss: 0.059
+[20,  8000] loss: 0.069
+[20, 10000] loss: 0.069
+[20, 12000] loss: 0.072
+Finished Training of AlexNet
+Accuracy of the network on the 10000 test images: 63 %
+Accuracy of Airplane : 70 %
+Accuracy of   Car : 76 %
+Accuracy of  Bird : 50 %
+Accuracy of   Cat : 37 %
+Accuracy of  Deer : 58 %
+Accuracy of   Dog : 51 %
+Accuracy of  Frog : 70 %
+Accuracy of Horse : 71 %
+Accuracy of  Ship : 69 %
+Accuracy of Truck : 76 %
+Average accuracy =  63.21
