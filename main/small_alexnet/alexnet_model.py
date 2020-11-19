@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 
+
 class AlexNet(nn.Module):
     """
     AlexNet model as suggested in gitlab issue #6
@@ -24,7 +25,7 @@ class AlexNet(nn.Module):
       )
       self.classifier = nn.Sequential(
           nn.Dropout(),
-          nn.Linear(256 * 8 * 8, 4096),
+          nn.Linear(256 * 4 * 4, 4096),
           nn.ReLU(inplace=True),
           nn.Dropout(),
           nn.Linear(4096, 1024),
