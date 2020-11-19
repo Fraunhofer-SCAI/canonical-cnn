@@ -16,19 +16,20 @@ from alexnet_model import AlexNet
 from CP_N_Way_Decomposition import CP_ALS
 from collections import OrderedDict
 import tensorly as tl
+import random
 tl.set_backend("pytorch")
 from tensorly.decomposition import parafac
 
 parser = argparse.ArgumentParser(description='PyTorch Cifar-AlexNet Training')
-parser.add_argument('--epochs', default=310, type=int,
+parser.add_argument('--epochs', default=300, type=int,
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int,
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=128, type=int,
                     help='mini-batch size (default: 64)')
-parser.add_argument('--lr', '--learning-rate', default=2e-3, type=float,
+parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     help='initial learning rate')
-parser.add_argument('--momentum', default=0.1, type=float, help='momentum')
+parser.add_argument('--momentum', default=0.6, type=float, help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=0., type=float,
                     help='weight decay (default: 1e-4)')
 parser.add_argument('--print-freq', '-p', default=10, type=int,
@@ -65,21 +66,20 @@ parser.set_defaults(augment=True)
 best_prec1 = 0
 args = parser.parse_args()
 
-args.description = 'Kernel_Compression_Test_1_Weight_Norms_Tensorly_PAckahe'
 args.resume = "./runs/exp1/checkpoint.pth.tar"
-print(args)
+print(args, flush=True)
 
-print("Tensorboard: ",args.tensorboard)
+print("Tensorboard: ",args.tensorboard, flush=True)
 if args.tensorboard:
     writer = SummaryWriter(comment='_' + args.data_set + '_'
                                    + '_lr_' + str(args.lr)
                                    + '_m_' + str(args.momentum)+ '_'
-                                   + args.description)
+                                   + '_rank_' + str(args.rank))
 
 
 def main():
     global args, best_prec1
-
+    #torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(args.seed)
     # Data loading code
     # to_tensor transform includes division by 255.
@@ -131,8 +131,8 @@ def main():
     # print(model)
 
     # get the number of model parameters
-    print('Number of model parameters: {}'.format(
-        sum([p.data.nelement() for p in model.parameters()])))
+    print('Number of model parameters before: {}'.format(
+        sum([p.data.nelement() for p in model.parameters()])), flush=True)
     
     # for training on multiple GPUs. 
     # Use CUDA_VISIBLE_DEVICES=0,1 to specify which GPUs to use
@@ -143,35 +143,44 @@ def main():
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
+            print("=> loading checkpoint '{}'".format(args.resume), flush=True)
             checkpoint = torch.load(args.resume)
             args.start_epoch = checkpoint['epoch']
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])
             print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch']))
+                  .format(args.resume, checkpoint['epoch']), flush=True)
         else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
+            print("=> no checkpoint found at '{}'".format(args.resume), flush=True)
 
     cudnn.benchmark = True
     print()
     print("Before replacement: ")
     print(model.eval())
-    print()
+    print(flush=True)
     model = replace_layer(model, args.layer)
 
     print()
     print("After replacement: ")
     print(model.eval())
-    print()
+    print(flush=True)
     # define loss function (criterion) and pptimizer
     if not args.cpu:
         criterion = nn.CrossEntropyLoss().cuda()
     else:
         criterion = nn.CrossEntropyLoss()
+    value = random.randint(2, 4)
+    fin_val = []
+    if value == 4:
+        fin_val.append(value)
+        fin_val.append(value+1)
+    else:
+        fin_val.append(value)
     for i, (name, param) in enumerate(model.named_parameters()):
-        if "features.3" not in name:
-            param.requires_grad=False
+        if i in fin_val:
+            print(name)
+            param.require_grad=False
+
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay,
@@ -180,14 +189,20 @@ def main():
     #                              args.lr,
     #                              momentum=args.momentum,
     #                              weight_decay=args.weight_decay)
+    print('Number of model parameters after: {}'.format(
+        sum([p.data.nelement() for p in model.parameters()])), flush=True)
     for param_group in optimizer.param_groups:
-        print("Learning rate: ", param_group['lr'])
+        print("Learning rate: ", param_group['lr'], flush=True)
     print('using :', optimizer)
     print("Afer optim")
     for epoch in range(args.start_epoch, args.epochs):
         print("Epoch: ", epoch)
         #adjust_learning_rate(optimizer, epoch)
-
+        #for i, (name, param) in enumerate(model.named_parameters()):
+        #    if i in fin_val:
+        #        param.require_grad=False
+        #    else:
+        #        param.require_grad=False
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch)
 
@@ -234,6 +249,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # compute gradient and do SGD step
         optimizer.zero_grad()
         closs.backward()
+        
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
         optimizer.step()
 
         # measure elapsed time
@@ -249,22 +266,19 @@ def train(train_loader, model, criterion, optimizer, epoch):
                       loss=closses, top1=top1))
     norms = []
     for i, (name, param) in enumerate(model.named_parameters()):
-        if "features.3"  in name:
+        if i  in [2, 3, 4]:
             norms.append(torch.norm(param))
-    #print("Norms: ")
-    #print(norms)
-    #print()
+
     # log to TensorBoard
     if args.tensorboard:
         #log_value('train_loss', losses.avg, epoch)
         writer.add_scalar('train_loss', closses.avg, epoch)
         # log_value('train_acc', top1.avg, epoch)
         writer.add_scalar('train_acc', top1.avg, epoch)
-        writer.add_scalar('K_s norm', norms[0], epoch)
-        writer.add_scalar('K_y norm', norms[1], epoch)
-        writer.add_scalar('K_x norm', norms[2], epoch)
-        writer.add_scalar('K_t norm', norms[3], epoch)
-
+        writer.add_scalar('Subs_layer1_norm', norms[0], epoch)
+        writer.add_scalar('Subs_layer2_norm', norms[1], epoch)
+        writer.add_scalar('Subs_layer3_norm', norms[2], epoch)
+        
 
 def validate(val_loader, model, criterion, epoch):
     """Perform validation on the validation set"""
@@ -305,7 +319,7 @@ def validate(val_loader, model, criterion, epoch):
                         i, len(val_loader), batch_time=batch_time, loss=losses,
                         top1=top1))
 
-    print(' * Prec@1 {top1.avg:.3f}'.format(top1=top1))
+    print(' * Prec@1 {top1.avg:.3f}'.format(top1=top1), flush=True)
     # log to TensorBoard
     if args.tensorboard:
         # log_value('val_loss', losses.avg, epoch)
@@ -375,40 +389,50 @@ def replace_layer(AlexNet_model, layer):
     weight_tensor = AlexNet_model.features[layer].weight.data
     max_iter = 200
     cp = CP_ALS()
-    print()
-    print("Rank is : ", args.rank)
-    print("Computing the factors of the weight tensor", flush=True)
-    start = time.time()
-    #A, lmbds = cp.compute_ALS(weight_tensor, max_iter, args.rank)
-    A = parafac(weight_tensor, args.rank, n_iter_max = max_iter, init="random", normalize_factors=True)[1]
-    end = time.time()
-    print("Factors calculated in ", end-start," seconds", flush=True)
-    K_t, K_s, K_y, K_x = A[0], A[1], A[2], A[3]
-    print(K_t.shape, K_s.shape, K_y.shape, K_x.shape)
-    K_s_a = K_s.T.unsqueeze(-1).unsqueeze(-1)
-    K_y_a = K_y.T.unsqueeze(1).unsqueeze(0)
-    K_x_a = K_x.T.unsqueeze(1).unsqueeze(-1)
-    K_t_a = K_t.unsqueeze(-1).unsqueeze(-1)
-    K_s = K_s.unsqueeze(-1).unsqueeze(-1)
-    K_y = K_y.T.unsqueeze(1).unsqueeze(1)
-    K_x = K_x.T.unsqueeze(0).unsqueeze(-1)
-    K_t = K_t.T.unsqueeze(-1).unsqueeze(-1)
-    model = torch.nn.Sequential(OrderedDict([
-            ('K_s', torch.nn.Conv2d(K_s.shape[0], K_s.shape[1], kernel_size = (K_s.shape[2], K_s.shape[3]),  padding = (0, 0))),
-            ('K_y', torch.nn.Conv2d(K_y.shape[0], K_y.shape[1], kernel_size = (K_y.shape[2], K_y.shape[3]),  padding = (0, 0))),
-            ('K_x', torch.nn.Conv2d(K_x.shape[0], K_x.shape[1], kernel_size = (K_x.shape[2], K_x.shape[3]),  padding = (0, 0))),
-            ('K_t', torch.nn.Conv2d(K_t.shape[0], K_t.shape[1], kernel_size = (K_t.shape[2], K_t.shape[3]),  padding = (1, 1)))
-            ]))
-    AlexNet_model.features[layer] = model
-    #with torch.no_grad():
-    print("Layer shape: ")
-    print(K_s.shape, K_y.shape, K_x.shape, K_t.shape)
-    print("Input shape: ")
-    print(K_s_a.shape, K_y_a.shape, K_x_a.shape, K_t_a.shape)
-    AlexNet_model.features[layer][0].weight = torch.nn.Parameter(K_s_a)
-    AlexNet_model.features[layer][1].weight = torch.nn.Parameter(K_y_a)
-    AlexNet_model.features[layer][2].weight = torch.nn.Parameter(K_x_a)
-    AlexNet_model.features[layer][3].weight = torch.nn.Parameter(K_t_a)
+    
+    ## Implementation from https://github.com/ruihangdu/Decompose-CNN/blob/master/scripts/torch_cp_decomp.py
+
+    # last, first, vertical, horizontal = parafac(weight_tensor, rank=args.rank, init='random', n_iter_max = max_iter)[1]
+    last, first, vertical, horizontal = cp.compute_ALS(weight_tensor, max_iter, args.rank)[0]
+    pointwise_s_to_r_layer = nn.Conv2d(in_channels=first.shape[0],
+                                       out_channels=first.shape[1],
+                                       kernel_size=1,
+                                       padding=0,
+                                       bias=False)
+
+    depthwise_r_to_r_layer = nn.Conv2d(in_channels=args.rank,
+                                       out_channels=args.rank,
+                                       kernel_size=vertical.shape[0],
+                                       stride=AlexNet_model.features[layer].stride,
+                                       padding=AlexNet_model.features[layer].padding,
+                                       dilation=AlexNet_model.features[layer].dilation,
+                                       groups=args.rank,
+                                       bias=False)
+                                       
+    pointwise_r_to_t_layer = nn.Conv2d(in_channels=last.shape[1],
+                                       out_channels=last.shape[0],
+                                       kernel_size=1,
+                                       padding=0,
+                                       bias=True)
+    
+    if AlexNet_model.features[layer].bias is not None:
+        pointwise_r_to_t_layer.bias.data = AlexNet_model.features[layer].bias.data
+    
+    sr = first.t_().unsqueeze_(-1).unsqueeze_(-1)
+    rt = last.unsqueeze_(-1).unsqueeze_(-1)
+    rr = torch.stack([vertical.narrow(1, i, 1) @ torch.t(horizontal).narrow(0, i, 1) for i in range(args.rank)]).unsqueeze_(1)
+    pointwise_s_to_r_layer.weight.data = sr 
+    pointwise_r_to_t_layer.weight.data = rt
+    depthwise_r_to_r_layer.weight.data = rr
+    #model = nn.Sequential(OrderedDict([
+    #                                    ('K_S',pointwise_s_to_r_layer),
+    #                                    ('K_YX',depthwise_r_to_r_layer),
+    #                                    ('K_T',pointwise_r_to_t_layer),
+    #                                  ]))
+    #AlexNet_model.features[layer] = model
+    model = [pointwise_s_to_r_layer, depthwise_r_to_r_layer, pointwise_r_to_t_layer]
+    AlexNet_model.features = nn.Sequential(\
+        *(list(AlexNet_model.features[:layer]) + model + list(AlexNet_model.features[layer + 1:])))
     return AlexNet_model.cuda()
 
 if __name__ == '__main__':
