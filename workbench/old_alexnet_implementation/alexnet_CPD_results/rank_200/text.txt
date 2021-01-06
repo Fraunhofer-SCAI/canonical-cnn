@@ -1,2 +1,0 @@
-learning rate : 0.00002
-momentun : 0.02

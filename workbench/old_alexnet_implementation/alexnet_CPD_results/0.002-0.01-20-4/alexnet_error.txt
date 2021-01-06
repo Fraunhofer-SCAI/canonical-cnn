@@ -1,2 +1,0 @@
-Using cache found in /home/lveeramacheneni/.cache/torch/hub/pytorch_vision_v0.6.0
-/var/spool/slurm/d/job1509743/slurm_script: line 16: /alexnet.py: No such file or directory
