@@ -143,20 +143,21 @@ class CP_ALS():
             A.append(torch.randn((i, rank)))
         return A
     
-    def compute_ALS(self, input_tensor, max_iter, rank):
+    def compute_ALS(self, input_tensor, max_iter, rank, norms=False):
         """
         This method is heart of this algorithm, this computes the factors and also lambdas of the algorithm.
         Input : 
             input_tensor : Tensor containing input values
             max_iter : maximum number of iterations
             rank : prescribed rank of the resultant factors
+            norms : Variable to define normalized factors or not
         Output : 
             A : factor matrices
             lmbds : column norms of each factor matrices
         """
         A = self.create_A_Matrix(input_tensor.shape, rank)
-        lmbds = []
         for l_iter in range(0, max_iter):
+            lmbds = torch.ones((rank, 1), dtype = input_tensor.dtype)
             for k in range(0, len(A)):
                 X_unfolded = self.unfold_tensor(input_tensor, k)
                 A.pop(k)
@@ -173,7 +174,16 @@ class CP_ALS():
                 #    lmbds[k] = np.linalg.norm(l)
                 #A[k] = A_k
                 A.insert(k, A_k)
-        return A, lmbds
+            if norms:
+                new_A = []
+                for factor in A:
+                    # In main system this line must be changed as torch.linalg.norm(input_tensor, axis=0)
+                    # because current pytorch version doesn't support this function so torch.norm is used
+                    norm = torch.norm(factor, dim=0)
+                    lmbds = lmbds*norm
+                    new_A.append(factor/(norm.view((1, -1))))
+                A = new_A
+        return A, lmbds[0]
     
     def reconstruct_tensor(self, factors, norm, rank, ip_shape):
         """

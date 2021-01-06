@@ -1,0 +1,5 @@
+main/small_alexnet/data/
+main/small_alexnet/__pycache__/
+main/small_alexnet/runs/
+main/small_alexnet/stored/
+main/small_alexnet/model_weights

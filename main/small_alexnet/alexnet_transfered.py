@@ -1,5 +1,6 @@
 import argparse
 import os
+from os import cpu_count
 import shutil
 import time
 
@@ -16,6 +17,7 @@ from alexnet_model import AlexNet
 from CP_N_Way_Decomposition import CP_ALS
 from collections import OrderedDict
 import tensorly as tl
+import numpy as np
 import random
 tl.set_backend("pytorch")
 from tensorly.decomposition import parafac
@@ -25,7 +27,7 @@ parser.add_argument('--epochs', default=300, type=int,
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int,
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=128, type=int,
+parser.add_argument('-b', '--batch-size', default=64, type=int,
                     help='mini-batch size (default: 64)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     help='initial learning rate')
@@ -44,7 +46,7 @@ parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true',
                     default=True)
 parser.add_argument('--cpu', help='Run on cpu only', action='store_true',
-                    default=False)
+                    default=True)
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--data_set', default='cifar10', type=str,
@@ -67,6 +69,7 @@ best_prec1 = 0
 args = parser.parse_args()
 
 args.resume = "./runs/exp1/checkpoint.pth.tar"
+args.weight_decay = 0.1
 print(args, flush=True)
 
 print("Tensorboard: ",args.tensorboard, flush=True)
@@ -74,7 +77,8 @@ if args.tensorboard:
     writer = SummaryWriter(comment='_' + args.data_set + '_'
                                    + '_lr_' + str(args.lr)
                                    + '_m_' + str(args.momentum)+ '_'
-                                   + '_rank_' + str(args.rank))
+                                   + '_rank_' + str(args.rank)+ '_'
+                                   + '_wdecay_' + str(args.weight_decay))
 
 
 def main():
@@ -158,28 +162,34 @@ def main():
     print("Before replacement: ")
     print(model.eval())
     print(flush=True)
+
+    ## Start of change log (17-Dez) 
+    # applying weight norm before replacemet
+    model = apply_Weight_Norm(model)
+    ## End of change log
+
     model = replace_layer(model, args.layer)
+
 
     print()
     print("After replacement: ")
     print(model.eval())
     print(flush=True)
-    # define loss function (criterion) and pptimizer
+    activation = {}
+    def get_activation(name):
+        def hook(model, input, output):
+            activation[name] = output.detach()
+        return hook
+    
+    for index, (name, lay) in enumerate(model.named_modules()):
+        if index in [5, 6, 8]:
+            lay.register_forward_hook(get_activation(name))
+     
+    # define loss function (criterion) and optimizer
     if not args.cpu:
         criterion = nn.CrossEntropyLoss().cuda()
     else:
         criterion = nn.CrossEntropyLoss()
-    value = random.randint(2, 4)
-    fin_val = []
-    if value == 4:
-        fin_val.append(value)
-        fin_val.append(value+1)
-    else:
-        fin_val.append(value)
-    for i, (name, param) in enumerate(model.named_parameters()):
-        if i in fin_val:
-            print(name)
-            param.require_grad=False
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -191,20 +201,15 @@ def main():
     #                              weight_decay=args.weight_decay)
     print('Number of model parameters after: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])), flush=True)
-    for param_group in optimizer.param_groups:
-        print("Learning rate: ", param_group['lr'], flush=True)
+
     print('using :', optimizer)
     print("Afer optim")
     for epoch in range(args.start_epoch, args.epochs):
         print("Epoch: ", epoch)
         #adjust_learning_rate(optimizer, epoch)
-        #for i, (name, param) in enumerate(model.named_parameters()):
-        #    if i in fin_val:
-        #        param.require_grad=False
-        #    else:
-        #        param.require_grad=False
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch)
+        # model = apply_Weight_Norm(model)
+        train(train_loader, model, criterion, optimizer, epoch, activation)
 
         # evaluate on validation set
         prec1 = validate(val_loader, model, criterion, epoch)
@@ -219,8 +224,13 @@ def main():
         }, is_best)
     print('Best accuracy: ', best_prec1)
 
+def apply_Weight_Norm(model):
+    for index, (name, layer) in enumerate(model.named_modules()):
+        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
+            layer = torch.nn.utils.weight_norm(layer)
+    return model
 
-def train(train_loader, model, criterion, optimizer, epoch):
+def train(train_loader, model, criterion, optimizer, epoch, activation):
     """Train for one epoch on the training set"""
     batch_time = AverageMeter()
     closses = AverageMeter()
@@ -250,7 +260,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         optimizer.zero_grad()
         closs.backward()
         
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+        #torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
         optimizer.step()
 
         # measure elapsed time
@@ -264,10 +274,30 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
                       loss=closses, top1=top1))
-    norms = []
-    for i, (name, param) in enumerate(model.named_parameters()):
-        if i  in [2, 3, 4]:
-            norms.append(torch.norm(param))
+    # Get activation maps between the layers and unfold them
+    # Calculate the mean norm and flatten norm
+    mean_norm = []
+    flatten_norm = []
+    for index, key in enumerate(activation):
+        inp = activation[key]
+        kernel = (1, 1)
+        if index == 2:
+            kernel == (3, 3)
+        inp_unf = torch.nn.functional.unfold(inp, kernel)
+        norms = []
+        for index in range(0, inp_unf.shape[0]):
+            norms.append(np.linalg.norm(inp_unf[index, :, :].cpu().detach().numpy(), ord=2))
+        mean_norm.append(sum(norms)/len(norms))
+        flatten_norm.append(np.linalg.norm(inp_unf.flatten().cpu().detach().numpy(), ord=2))
+    weight_norms = []
+    for index, (n, p) in enumerate(model.named_parameters()):
+        if index in [2, 3, 4, 5]:
+            print(p.size())
+            p_unfolded = p.view(p.size(0), -1)
+            weight_norms.append(np.linalg.norm(p_unfolded.cpu().detach().numpy(), ord=2))
+
+
+    
 
     # log to TensorBoard
     if args.tensorboard:
@@ -275,9 +305,18 @@ def train(train_loader, model, criterion, optimizer, epoch):
         writer.add_scalar('train_loss', closses.avg, epoch)
         # log_value('train_acc', top1.avg, epoch)
         writer.add_scalar('train_acc', top1.avg, epoch)
-        writer.add_scalar('Subs_layer1_norm', norms[0], epoch)
-        writer.add_scalar('Subs_layer2_norm', norms[1], epoch)
-        writer.add_scalar('Subs_layer3_norm', norms[2], epoch)
+
+        writer.add_scalar("Layer 2 input mean norm", mean_norm[0], epoch)
+        writer.add_scalar("Layer 3 input mean norm", mean_norm[1], epoch)
+        writer.add_scalar("Layer 4 input mean norm", mean_norm[2], epoch) 
+        
+        writer.add_scalar("Layer 2 input flatten norm", flatten_norm[0], epoch) 
+        writer.add_scalar("Layer 3 input flatten norm", flatten_norm[1], epoch) 
+        writer.add_scalar("Layer 4 input flatten norm", flatten_norm[2], epoch) 
+
+        writer.add_scalar("Layer 2 weight norm", weight_norms[0], epoch)
+        writer.add_scalar("Layer 3 weight norm", weight_norms[1], epoch)
+        writer.add_scalar("Layer 4 weight norm", weight_norms[2], epoch)
         
 
 def validate(val_loader, model, criterion, epoch):
@@ -331,13 +370,13 @@ def validate(val_loader, model, criterion, epoch):
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     """Saves checkpoint to disk"""
-    directory = "runs/%s/"%(args.name)
+    directory = "test_runs/%s/"%(args.name)
     if not os.path.exists(directory):
         os.makedirs(directory)
     filename = directory + filename
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'runs/%s/'%(args.name) + 'model_best.pth.tar')
+        shutil.copyfile(filename, 'test_runs/%s/'%(args.name) + 'model_best.pth.tar')
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -386,7 +425,11 @@ def accuracy(output, target, topk=(1,)):
 
 def replace_layer(AlexNet_model, layer):
     AlexNet_model = AlexNet_model.cpu()
-    weight_tensor = AlexNet_model.features[layer].weight.data
+    # weight_tensor = AlexNet_model.features[layer].weight.data
+    g_weight = AlexNet_model.features[layer].weight_g.data
+    v_weight = AlexNet_model.features[layer].weight_v.data
+    weight_tensor = g_weight * v_weight
+    # weight_tensor = v_weight
     max_iter = 200
     cp = CP_ALS()
     
@@ -394,6 +437,10 @@ def replace_layer(AlexNet_model, layer):
 
     # last, first, vertical, horizontal = parafac(weight_tensor, rank=args.rank, init='random', n_iter_max = max_iter)[1]
     last, first, vertical, horizontal = cp.compute_ALS(weight_tensor, max_iter, args.rank)[0]
+    # Uncomment the below two lines in case of normalized CP Decomposition
+    # factors, lmbds = cp.compute_ALS(weight_tensor, max_iter, args.rank, norms=True)
+    # last, first, vertical, horizontal = factors[0], factors[1], factors[2], factors[3]
+        
     pointwise_s_to_r_layer = nn.Conv2d(in_channels=first.shape[0],
                                        out_channels=first.shape[1],
                                        kernel_size=1,
@@ -424,16 +471,15 @@ def replace_layer(AlexNet_model, layer):
     pointwise_s_to_r_layer.weight.data = sr 
     pointwise_r_to_t_layer.weight.data = rt
     depthwise_r_to_r_layer.weight.data = rr
-    #model = nn.Sequential(OrderedDict([
-    #                                    ('K_S',pointwise_s_to_r_layer),
-    #                                    ('K_YX',depthwise_r_to_r_layer),
-    #                                    ('K_T',pointwise_r_to_t_layer),
-    #                                  ]))
-    #AlexNet_model.features[layer] = model
     model = [pointwise_s_to_r_layer, depthwise_r_to_r_layer, pointwise_r_to_t_layer]
+
     AlexNet_model.features = nn.Sequential(\
         *(list(AlexNet_model.features[:layer]) + model + list(AlexNet_model.features[layer + 1:])))
-    return AlexNet_model.cuda()
+    if not args.cpu:
+        AlexNet_model = AlexNet_model.cuda()
+    return AlexNet_model
+
+
 
 if __name__ == '__main__':
     main()
