@@ -4,3 +4,4 @@ main/small_alexnet/runs/
 main/small_alexnet/stored/
 main/small_alexnet/model_weights
 workbench/
+main/small_alexnet/test_runs

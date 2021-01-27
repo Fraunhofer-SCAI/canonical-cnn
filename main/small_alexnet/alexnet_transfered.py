@@ -21,13 +21,14 @@ import numpy as np
 import random
 tl.set_backend("pytorch")
 from tensorly.decomposition import parafac
+from cpnorm import CP_Norm
 
 parser = argparse.ArgumentParser(description='PyTorch Cifar-AlexNet Training')
 parser.add_argument('--epochs', default=300, type=int,
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int,
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=64, type=int,
+parser.add_argument('-b', '--batch-size', default=128, type=int,
                     help='mini-batch size (default: 64)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     help='initial learning rate')
@@ -46,7 +47,7 @@ parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true',
                     default=True)
 parser.add_argument('--cpu', help='Run on cpu only', action='store_true',
-                    default=True)
+                    default=False)
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--data_set', default='cifar10', type=str,
@@ -165,11 +166,15 @@ def main():
 
     ## Start of change log (17-Dez) 
     # applying weight norm before replacemet
-    model = apply_Weight_Norm(model)
+    # model = apply_Weight_Norm(model)
     ## End of change log
 
-    model = replace_layer(model, args.layer)
-
+    ## Working on cp_norm instead of replacing the layers
+    # model = replace_layer(model, args.layer)
+    print("Applying CP Norm", flush=True)
+    model = apply_CP_Norm(model)
+    print()
+    print("CP Norm application done", flush=True)        
 
     print()
     print("After replacement: ")
@@ -223,6 +228,14 @@ def main():
             'best_prec1': best_prec1,
         }, is_best)
     print('Best accuracy: ', best_prec1)
+
+def apply_CP_Norm(model):#
+    model = model.cpu()
+    for index, (name, layer) in enumerate(model.named_modules()):
+        if index == 5:
+            layer = CP_Norm(layer, args.rank)
+    model = model.cuda()
+    return model
 
 def apply_Weight_Norm(model):
     for index, (name, layer) in enumerate(model.named_modules()):
