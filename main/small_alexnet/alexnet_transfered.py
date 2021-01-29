@@ -70,7 +70,7 @@ best_prec1 = 0
 args = parser.parse_args()
 
 args.resume = "./runs/exp1/checkpoint.pth.tar"
-args.weight_decay = 0.1
+#args.weight_decay = 0.1
 print(args, flush=True)
 
 print("Tensorboard: ",args.tensorboard, flush=True)

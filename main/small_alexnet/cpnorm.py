@@ -2,6 +2,7 @@ from torch.nn.parameter import Parameter#, UninitializedParameter
 from typing import Any, TypeVar
 from torch.nn import Module
 import tensorly as tl
+import torch
 tl.set_backend('pytorch')
 from tensorly.decomposition import parafac
 
@@ -12,13 +13,12 @@ class CPNorm(object):
         self.name = name
 
     def compute_Weight(self, module: Module) -> Any:
-        lbda = getattr(module, self.name+'_lbda')
         A = getattr(module, self.name+'_A')
         B = getattr(module, self.name+'_B')
         C = getattr(module, self.name+'_C')
         D = getattr(module, self.name+'_D')
-        factors = tuple([lbda, tuple([A, B, C, D])])
-        recons_weight = tl.cp_to_tensor(factors)
+        weights = getattr(module, self.name+'_weights')
+        recons_weight = tl.cp_to_tensor((weights, [A, B, C, D]))
         return recons_weight
     
     @staticmethod
@@ -37,15 +37,14 @@ class CPNorm(object):
         
         del module._parameters[name]
 
-        factors = parafac(weight_tensor, rank= rank, init='random', n_iter_max = max_iter)
+        factors = parafac(weight_tensor, rank= rank, init='random', random_state = 0,n_iter_max = max_iter, normalize_factors = True)
         lbda = factors[0]
         A, B, C, D = factors[1][0], factors[1][1], factors[1][2], factors[1][3] 
-        module.register_parameter(name+'_lbda', Parameter(lbda))
         module.register_parameter(name+'_A', Parameter(A))
         module.register_parameter(name+'_B', Parameter(B))
         module.register_parameter(name+'_C', Parameter(C))
         module.register_parameter(name+'_D', Parameter(D))
-
+        module.register_parameter(name+'_weights', Parameter(factors[0]))
         setattr(module, name, fn.compute_Weight(module))
 
         module.register_forward_pre_hook(fn)
