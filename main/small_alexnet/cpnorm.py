@@ -18,7 +18,9 @@ class CPNorm(object):
         C = getattr(module, self.name+'_C')
         D = getattr(module, self.name+'_D')
         weights = getattr(module, self.name+'_weights')
-        recons_weight = tl.cp_to_tensor((weights, [A, B, C, D]))
+        facs = (weights, [A, B, C, D])
+        factors = tl.cp_normalize(facs)
+        recons_weight = tl.cp_to_tensor(factors)
         return recons_weight
     
     @staticmethod
@@ -37,7 +39,8 @@ class CPNorm(object):
         
         del module._parameters[name]
 
-        factors = parafac(weight_tensor, rank= rank, init='random', random_state = 0,n_iter_max = max_iter, normalize_factors = True)
+        factors = parafac(weight_tensor, rank= rank, init='random', random_state = 0,n_iter_max = max_iter, normalize_factors = False)
+        
         lbda = factors[0]
         A, B, C, D = factors[1][0], factors[1][1], factors[1][2], factors[1][3] 
         module.register_parameter(name+'_A', Parameter(A))
