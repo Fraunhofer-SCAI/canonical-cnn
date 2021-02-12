@@ -1,5 +1,6 @@
 from __future__ import print_function
 import argparse
+from typing import ValuesView
 import numpy as np
 import torch
 import torch.nn as nn
@@ -7,6 +8,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
+from torch.nn.utils import weight_norm
 from cp_norm import cp_norm, estimate_rank
 from torch.utils.tensorboard.writer import SummaryWriter
 
@@ -24,24 +26,26 @@ def compute_parameter_total(net):
 class Net(nn.Module):
     # Standard parameter total. 1199882
 
-    def __init__(self, cp=True):
+    def __init__(self, cpnorm=False, wnorm=False):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(1, 32, 3, 1)
         self.conv2 = nn.Conv2d(32, 64, 3, 1)
-
-        if cp is True:
-            self.conv1 = cp_norm(self.conv1, rank=7)
-            self.conv2 = cp_norm(self.conv2, rank=199)
-
         self.dropout1 = nn.Dropout(0.25)
         self.fc1 = nn.Linear(9216, 128)
         self.dropout2 = nn.Dropout(0.5)
         self.fc2 = nn.Linear(128, 10)
 
-        if cp is True:
+        if cpnorm is True and wnorm is False:
+            self.conv1 = cp_norm(self.conv1, rank=7)
+            self.conv2 = cp_norm(self.conv2, rank=199)
             self.fc1 = cp_norm(self.fc1, rank=100)
             self.fc2 = cp_norm(self.fc2, rank=11)
 
+        elif cpnorm is False and wnorm is True:
+            self.conv1 = weight_norm(self.conv1)
+            self.conv2 = weight_norm(self.conv2)
+            self.fc1 = weight_norm(self.fc1)
+            self.fc2 = weight_norm(self.fc2)
     def forward(self, x):
         x = self.conv1(x)
         x = F.relu(x)
@@ -122,12 +126,15 @@ def main():
                         help='For Saving the current Model')
     parser.add_argument('--resume', action='store_true', default=False,
                         help='Resume training from a stored model.')
+    parser.add_argument('--mode', type=int, default=0, metavar='N', 
+                        help ='0 for normal, 1 for CPnorm and 2 for weightnorm')
 
 
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     writer = SummaryWriter(comment='_' + 'MNIST' + '_'
-                                   + '_lr_' + str(args.lr))
+                                   + '_lr_' + str(args.lr) + '_'
+                                   + '_mode_'+str(args.mode))
     torch.manual_seed(args.seed)
 
     device = torch.device("cuda:0" if use_cuda else "cpu")
@@ -151,10 +158,14 @@ def main():
                        transform=transform)
     train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
-    new_model = Net(cp=False).to(device)
-    parameter_total = compute_parameter_total(new_model)
-    print('old parameter total:', parameter_total)
-    model = Net().to(device)
+
+    model = None
+    if args.mode == 0:
+        model = Net().to(device)
+    elif args.mode == 1:
+        model = Net(cpnorm=True).to(device)
+    elif args.mode == 2:
+        model = Net(wnorm=True).to(device)
     parameter_total = compute_parameter_total(model)
     print('new parameter total:', parameter_total)
     optimizer = optim.SGD(model.parameters(), lr=args.lr)

@@ -12,5 +12,5 @@ source /home/lveeramacheneni/.bashrc
 conda activate /home/lveeramacheneni/lconda_env
 echo Modules loaded....
 
-CUDA_VISIBLE_DEVICES=4,5 /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/main/tensorly/mnist.py --lr=1e-3 --epochs=100
+CUDA_VISIBLE_DEVICES=4,5 /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/mnist.py --lr=1e-3 --epochs=10 --mode=2
 

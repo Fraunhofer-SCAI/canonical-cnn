@@ -1,10 +1,8 @@
-main/small_alexnet/data/
-main/small_alexnet/__pycache__/
-main/small_alexnet/runs/
-main/small_alexnet/stored/
-main/small_alexnet/model_weights
 workbench/
-main/small_alexnet/test_runs
-main/data
 main/
+scripts/
 *.txt
+*.pt
+src/cp_norm/__pycache__
+src/small_mnist/runs
+src/small_mnist/__pycache__
