@@ -4,7 +4,7 @@ from torch.nn import Module
 import tensorly as tl
 import torch
 tl.set_backend('pytorch')
-from tensorly.decomposition import parafac
+from tensorly.decomposition import parafac, CPPower
 
 
 def estimate_rank(tensor: torch.Tensor, max_it: int = 1000 ) -> int:
@@ -31,6 +31,7 @@ class CPNorm(object):
     def compute_Weight(self, module: Module) -> Any:
 
         weights = getattr(module, self.name+'_weights')
+        sigma = getattr(module, self.name+'_sigma')
         if isinstance(module,torch.nn.Conv2d):
             A = getattr(module, self.name+'_A')
             B = getattr(module, self.name+'_B')
@@ -42,7 +43,7 @@ class CPNorm(object):
             B = getattr(module, self.name+'_B')
             facs = (weights, [A, B])
         _, factors = tl.cp_normalize(facs)
-        cp_layer = (weights, factors)
+        cp_layer = (weights*sigma, factors)
         recons_weight = tl.cp_to_tensor(cp_layer)
         return recons_weight
     
@@ -58,8 +59,10 @@ class CPNorm(object):
 
         del module._parameters[name]
 
-        factors = parafac(weight_tensor, rank= rank, init='random', random_state = 0, 
-                          n_iter_max = max_iter, normalize_factors = False)
+        #factors = parafac(weight_tensor, rank= rank, init='random', random_state = 0, 
+        #                  n_iter_max = max_iter, normalize_factors = False)
+        CPP = CPPower(rank = rank)
+        factors = CPP.fit_transform(weight_tensor)
         
         if isinstance(module, torch.nn.Conv2d):
             A, B, C, D = factors[1][0], factors[1][1], factors[1][2], factors[1][3] 
@@ -72,7 +75,7 @@ class CPNorm(object):
             A, B = factors[1][0], factors[1][1]
             module.register_parameter(name+'_A', Parameter(A))
             module.register_parameter(name+'_B', Parameter(B))
-
+        module.register_parameter(name+'_sigma', Parameter(torch.tensor([1], dtype=torch.float32)))
         module.register_parameter(name+'_weights', Parameter(factors[0]))
         setattr(module, name, fn.compute_Weight(module))
         module.register_forward_pre_hook(fn)

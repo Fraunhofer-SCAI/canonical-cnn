@@ -21,7 +21,7 @@ import numpy as np
 import random
 tl.set_backend("pytorch")
 from tensorly.decomposition import parafac
-from cpnorm import CP_Norm
+from cp_norm import cp_norm
 
 parser = argparse.ArgumentParser(description='PyTorch Cifar-AlexNet Training')
 parser.add_argument('--epochs', default=300, type=int,
@@ -62,6 +62,8 @@ parser.add_argument('--description',
                     default="None")
 parser.add_argument('--layer',default=3, type=int, help='layer to replace in network' )
 parser.add_argument('--rank', default = 448, type=int, help='Decomposition rank')
+parser.add_argument('--mode', default=0, type=int, help='If 0 then normal, else if 1 then cpnorm or else\
+                    2 then weight norm')
 
 parser.set_defaults(augment=True)
 
@@ -79,6 +81,7 @@ if args.tensorboard:
                                    + '_lr_' + str(args.lr)
                                    + '_m_' + str(args.momentum)+ '_'
                                    + '_rank_' + str(args.rank)+ '_'
+                                   +'_mode_'+str(args.mode) + '_cbed_'
                                    + '_wdecay_' + str(args.weight_decay))
 
 
@@ -171,15 +174,20 @@ def main():
 
     ## Working on cp_norm instead of replacing the layers
     # model = replace_layer(model, args.layer)
-    print("Applying CP Norm", flush=True)
-    model = apply_CP_Norm(model)
-    print()
-    print("CP Norm application done", flush=True)        
-
-    print()
-    print("After replacement: ")
-    print(model.eval())
-    print(flush=True)
+    if args.mode == 1:
+        print("Applying CP Norm", flush=True)
+        model = apply_CP_Norm(model)
+        print()
+        print("CP Norm application done", flush=True)        
+    elif args.mode == 2:
+        print('Applying weight norm', flush=True)
+        model = apply_Weight_Norm(model)
+        print()
+        print('Weight norm application done', flush=True)
+   # print()
+   # print("After replacement: ")
+   # print(model.eval())
+   # print(flush=True)
     activation = {}
     def get_activation(name):
         def hook(model, input, output):
@@ -230,16 +238,19 @@ def main():
     print('Best accuracy: ', best_prec1)
 
 def apply_CP_Norm(model):#
+    ranks = [40, 571, 1540, 1800, 1482]
     model = model.cpu()
+    c = 0
     for index, (name, layer) in enumerate(model.named_modules()):
-        if index == 5:
-            layer = CP_Norm(layer, args.rank)
+        if isinstance(layer, nn.Conv2d):
+            layer = cp_norm(layer, ranks[c])
+            c+=1
     model = model.cuda()
     return model
 
 def apply_Weight_Norm(model):
     for index, (name, layer) in enumerate(model.named_modules()):
-        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
+        if isinstance(layer, nn.Conv2d):# or isinstance(layer, nn.Linear):
             layer = torch.nn.utils.weight_norm(layer)
     return model
 

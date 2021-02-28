@@ -1,16 +1,15 @@
 #!/bin/bash
-#
-#SBATCH --job-name=cpnorm_anet
-#SBATCH --output=cpnorm_anet_output_5.txt
-#SBATCH --error=cpnorm_anet_error_5.txt
+#SBATCH --job-name=Alexnet_rank_estimation
+#SBATCH --output=cpnorm_anet_output_10.txt
+#SBATCH --error=cpnorm_anet_error.txt
 #SBATCH -p gpu
-#SBATCH --nodes=1
-#SBATCH --ntasks=16
+#SBATCH --gres gpu:v100:1
+#SBATCH -n 1
 
-module load Anaconda3/5.1.0
+
+module load Anaconda3/
 source /home/lveeramacheneni/.bashrc
 conda activate /home/lveeramacheneni/lconda_env
-echo Modules loaded....
 
-CUDA_VISIBLE_DEVICES=4,5 /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/cp_norm/test.py
+/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/cp_norm/test.py 10
 

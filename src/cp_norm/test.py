@@ -6,10 +6,11 @@ tl.set_backend('pytorch')
 import timeit
 import torchvision.models as models
 from mnist import Net
+import sys
 
-def estimate_rank(tensor: torch.Tensor, max_it: int = 1500 ) -> int:
+def estimate_rank(tensor: torch.Tensor, max_it: int = 2500 ) -> int:
     count = 0
-    for it in range(1, max_it, 5):
+    for it in range(1680, max_it, 7):
         #print(it, end=' , ')
         try:
             stime = timeit.timeit()
@@ -27,11 +28,11 @@ def estimate_rank(tensor: torch.Tensor, max_it: int = 1500 ) -> int:
                 count += 1
             if err < 1e-5 or (1-fit.item())*100 > 99.0 or count > 3:
                 print()
-                print('Convergence reached...')
+                print('Convergence reached...', flush=True)
                 break
         except Exception as e:
             print(e)
-            print('rank', it, 'failed to converge.')
+            print('rank', it, 'failed to converge.', flush=True)
     return it
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -42,8 +43,13 @@ model = AlexNet()
 #model = Net()
 model = model.to(device)
 for index, (name, layer) in enumerate(model.named_modules()):
-    if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
+    #if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
+    #if isinstance(layer, torch.nn.Linear) and index == int(sys.argv[1]):
+    #    print('name: ', name, '   ', layer.weight.shape, flush=True)
+    #    rank = torch.matrix_rank(layer.weight)
+    #    print('Rank: ', rank)
+    if index == int(sys.argv[1]):# and isinstance(layer, torch.nn.Conv2d):
         print()
-        print('Index: ', index, ' Name: ', name)
+        print('Index: ', index, ' Name: ', name, flush=True)
         _ = estimate_rank(layer.weight)
 

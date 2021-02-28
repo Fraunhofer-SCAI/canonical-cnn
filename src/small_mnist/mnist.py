@@ -6,10 +6,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import time
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
-from torch.nn.utils import weight_norm
-from cp_norm import cp_norm, estimate_rank
+from model import Net
 from torch.utils.tensorboard.writer import SummaryWriter
 
 
@@ -21,45 +21,6 @@ def compute_parameter_total(net):
             print(p.shape)
             total += np.prod(p.shape)
     return total
-
-
-class Net(nn.Module):
-    # Standard parameter total. 1199882
-
-    def __init__(self, cpnorm=False, wnorm=False):
-        super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.dropout1 = nn.Dropout(0.25)
-        self.fc1 = nn.Linear(9216, 128)
-        self.dropout2 = nn.Dropout(0.5)
-        self.fc2 = nn.Linear(128, 10)
-
-        if cpnorm is True and wnorm is False:
-            self.conv1 = cp_norm(self.conv1, rank=7)
-            self.conv2 = cp_norm(self.conv2, rank=199)
-            self.fc1 = cp_norm(self.fc1, rank=100)
-            self.fc2 = cp_norm(self.fc2, rank=11)
-
-        elif cpnorm is False and wnorm is True:
-            self.conv1 = weight_norm(self.conv1)
-            self.conv2 = weight_norm(self.conv2)
-            self.fc1 = weight_norm(self.fc1)
-            self.fc2 = weight_norm(self.fc2)
-    def forward(self, x):
-        x = self.conv1(x)
-        x = F.relu(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-        x = F.max_pool2d(x, 2)
-        x = self.dropout1(x)
-        x = torch.flatten(x, 1)
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout2(x)
-        x = self.fc2(x)
-        output = F.log_softmax(x, dim=1)
-        return output
 
 
 def train(args, model, device, train_loader, optimizer, epoch, writer):
@@ -118,11 +79,11 @@ def main():
                         help='disables CUDA training')
     parser.add_argument('--dry-run', action='store_true', default=False,
                         help='quickly check a single pass')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
-                        help='random seed (default: 1)')
+    parser.add_argument('--seed', type=int, default=int(time.time()), metavar='S',
+                        help='random seed (default: int(time.time()))')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
-    parser.add_argument('--save-model', action='store_true', default=True,
+    parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
     parser.add_argument('--resume', action='store_true', default=False,
                         help='Resume training from a stored model.')
@@ -132,10 +93,20 @@ def main():
 
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
+    status = ''
+    if args.mode == 0:
+        status = 'None'
+    elif args.mode == 1:
+        status = 'CP-Norm'
+    elif args.mode == 2:
+        status = 'Weight-Norm'
     writer = SummaryWriter(comment='_' + 'MNIST' + '_'
                                    + '_lr_' + str(args.lr) + '_'
-                                   + '_mode_'+str(args.mode))
+                                   + '_seed_' + str(args.seed) + '_'
+                                   + '_mode_'+ status+ '_'
+                                   + '_desc_'+'WEIGHTNORM_mit_RMSPROP')
     torch.manual_seed(args.seed)
+    print(args)
 
     device = torch.device("cuda:0" if use_cuda else "cpu")
     print('deivce: ', device, flush=True)
@@ -159,23 +130,25 @@ def main():
     train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
-    model = None
+    net_model = None
     if args.mode == 0:
-        model = Net().to(device)
+        net_model = Net().to(device)
     elif args.mode == 1:
-        model = Net(cpnorm=True).to(device)
+        net_model = Net(cpnorm=True).to(device)
     elif args.mode == 2:
-        model = Net(wnorm=True).to(device)
-    parameter_total = compute_parameter_total(model)
+        net_model = Net(wnorm=True).to(device)
+    parameter_total = compute_parameter_total(net_model)
     print('new parameter total:', parameter_total)
-    optimizer = optim.SGD(model.parameters(), lr=args.lr)
+    #optimizer = optim.SGD(net_model.parameters(), lr=args.lr)#, momentum=0.1)#, weight_decay = 0.1)
+    optimizer = optim.RMSprop(net_model.parameters(), lr=args.lr)
 
     #scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch, writer)
-        test(model, device, test_loader, epoch, writer)
+    for epoch in range(1, args.epochs+1):
+        train(args, net_model, device, train_loader, optimizer, epoch, writer)
+        test(net_model, device, test_loader, epoch, writer)
         #scheduler.step()
 
+    writer.close()
     if args.save_model:
         torch.save(model.state_dict(), "./mnist_cnn.pt")
 

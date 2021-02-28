@@ -7,7 +7,7 @@ tl.set_backend('pytorch')
 from tensorly.decomposition import parafac
 
 
-def estimate_rank(tensor: torch.Tensor, max_it: int = 1000 ) -> int:
+def estimate_rank(tensor: torch.Tensor, max_it: int = 2500 ) -> int:
     for it in range(1, max_it, 2):
         try:
             decomposition = parafac(tensor, rank=it, init='random', random_state = 0)
