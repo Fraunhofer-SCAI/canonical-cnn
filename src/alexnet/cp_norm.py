@@ -43,7 +43,7 @@ class CPNorm(object):
             B = getattr(module, self.name+'_B')
             facs = (weights, [A, B])
         _, factors = tl.cp_normalize(facs)
-        cp_layer = (weights*(sigma**3), factors)
+        cp_layer = (weights*(sigma), factors)
         recons_weight = tl.cp_to_tensor(cp_layer)
         return recons_weight
     

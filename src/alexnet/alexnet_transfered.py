@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 from os import cpu_count
 import shutil
 import time
@@ -48,8 +49,8 @@ parser.add_argument('--tensorboard',
                     default=True)
 parser.add_argument('--cpu', help='Run on cpu only', action='store_true',
                     default=False)
-parser.add_argument('--seed', type=int, default=1, metavar='S',
-                    help='random seed (default: 1)')
+parser.add_argument('--seed', type=int, default=int(time.time()), metavar='S',
+                    help='random seed (default: time.time)')
 parser.add_argument('--data_set', default='cifar10', type=str,
                     help='The data set to be used.')
 parser.add_argument('--model', default='AlexNet', type=str,
@@ -64,7 +65,8 @@ parser.add_argument('--layer',default=3, type=int, help='layer to replace in net
 parser.add_argument('--rank', default = 448, type=int, help='Decomposition rank')
 parser.add_argument('--mode', default=0, type=int, help='If 0 then normal, else if 1 then cpnorm or else\
                     2 then weight norm')
-
+parser.add_argument('--optimizer', default=0, type=int, help='Select an optimizer\
+                    If 0 then SGD else 1 it is RMSProp')
 parser.set_defaults(augment=True)
 
 
@@ -76,12 +78,25 @@ args.resume = "./runs/exp1/checkpoint.pth.tar"
 print(args, flush=True)
 
 print("Tensorboard: ",args.tensorboard, flush=True)
+status = None
+if args.mode == 0:
+    status = 'None'
+elif args.mode == 1:
+    status = 'CPNorm'
+elif args.mode == 2:
+    status = 'WeightNorm'
+used_optim = None
+if args.optimizer == 0:
+    used_optim = 'SGD'
+elif args.optimizer == 1:
+    used_optim = 'RMSProp'
 if args.tensorboard:
     writer = SummaryWriter(comment='_' + args.data_set + '_'
                                    + '_lr_' + str(args.lr)
                                    + '_m_' + str(args.momentum)+ '_'
                                    + '_rank_' + str(args.rank)+ '_'
-                                   +'_mode_'+str(args.mode) + '_cbed_'
+                                   + '_mode_' + status + '_'
+                                   + '_optim_'+ used_optim + '_'
                                    + '_wdecay_' + str(args.weight_decay))
 
 
@@ -203,11 +218,13 @@ def main():
         criterion = nn.CrossEntropyLoss().cuda()
     else:
         criterion = nn.CrossEntropyLoss()
-
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay,
-                                nesterov=args.nesterov)
+    if args.optimizer == 0:
+        optimizer = torch.optim.SGD(model.parameters(), args.lr,
+                                    momentum=args.momentum,
+                                    weight_decay=args.weight_decay,
+                                    nesterov=args.nesterov)
+    elif args.optimizer == 1:
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr)
     # optimizer = torch.optim.Adam(model.parameters(),
     #                              args.lr,
     #                              momentum=args.momentum,

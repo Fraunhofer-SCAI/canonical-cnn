@@ -17,6 +17,6 @@ conda activate /home/lveeramacheneni/lconda_env
 #source /home/lveeramacheneni/.bashrc
 #conda activate /home/lveeramacheneni/lconda_env
 #echo Modules loaded....
-CUDA_VISIBLE_DEVICES=7 /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/small_mnist/mnist.py --lr=1e-3 --epochs=50 --mode=2
+/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/small_mnist/mnist.py --lr=1e-3 --epochs=50 --mode=1 --optimizer=1
 #/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/small_mnist/metafile.py
 

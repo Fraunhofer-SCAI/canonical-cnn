@@ -89,6 +89,8 @@ def main():
                         help='Resume training from a stored model.')
     parser.add_argument('--mode', type=int, default=0, metavar='N', 
                         help ='0 for normal, 1 for CPnorm and 2 for weightnorm')
+    parser.add_argument('--optimizer', type=int, default=0, metavar='N',
+                        help='0 for SGD, 1 for RMSProp')
 
 
     args = parser.parse_args()
@@ -100,11 +102,15 @@ def main():
         status = 'CP-Norm'
     elif args.mode == 2:
         status = 'Weight-Norm'
+    opti = None
+    if args.optimizer == 0:
+        opti = 'SGD'
+    elif args.optimizer == 1:
+        opti = 'RMSProp'
     writer = SummaryWriter(comment='_' + 'MNIST' + '_'
                                    + '_lr_' + str(args.lr) + '_'
-                                   + '_seed_' + str(args.seed) + '_'
-                                   + '_mode_'+ status+ '_'
-                                   + '_desc_'+'WEIGHTNORM_mit_RMSPROP')
+                                   + '_mode_'+ status + '_'
+                                   + '_optim_'+ opti)
     torch.manual_seed(args.seed)
     print(args)
 
@@ -139,8 +145,10 @@ def main():
         net_model = Net(wnorm=True).to(device)
     parameter_total = compute_parameter_total(net_model)
     print('new parameter total:', parameter_total)
-    #optimizer = optim.SGD(net_model.parameters(), lr=args.lr)#, momentum=0.1)#, weight_decay = 0.1)
-    optimizer = optim.RMSprop(net_model.parameters(), lr=args.lr)
+    if args.optimizer == 0:
+        optimizer = optim.SGD(net_model.parameters(), lr=args.lr)#, momentum=0.1)#, weight_decay = 0.1)
+    elif args.optimizer == 1:
+        optimizer = optim.RMSprop(net_model.parameters(), lr=args.lr)
 
     #scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs+1):
