@@ -7,7 +7,7 @@ src/cp_norm/__pycache__
 src/small_mnist/runs
 src/small_mnist/__pycache__
 src/data/
-src/alexnet/data/
-src/alexnet/runs/
-src/alexnet/test_runs/
-src/alexnet/__pycache__/
+src/alexnet/data
+src/alexnet/runs
+src/alexnet/test_runs
+src/alexnet/__pycache__
