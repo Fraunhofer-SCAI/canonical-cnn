@@ -1,6 +1,9 @@
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 import argparse
 from typing import ValuesView
+from pathlib import Path
+import sys
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 import numpy as np
 import time
@@ -12,8 +15,8 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard.writer import SummaryWriter
 from torchvision import datasets, transforms
 
-from ...cp_compress import apply_compression
-from ...models.ConvNet_model import Net
+from cp_compress import apply_compression
+from models.ConvNet_model import Net
 
 
 def compute_parameter_total(net):
@@ -87,12 +90,15 @@ def main():
                         help='how many batches to wait before logging training status')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
-    parser.add_argument('--resume', action='store_true', default=False,
+    parser.add_argument('--resume', action='store_true', default=True,
                         help='Resume training from a stored model.')
     parser.add_argument('--mode', type=int, default=0, metavar='N', 
                         help ='0 for normal, 1 for CPnorm and 2 for weightnorm')
     parser.add_argument('--optimizer', type=int, default=0, metavar='N',
                         help='0 for SGD, 1 for RMSProp')
+    parser.add_argument('--compress_rate', type=int, default=0, metavar='N',
+                        help='Compression rate for the network compression')
+    
 
 
     args = parser.parse_args()
@@ -112,7 +118,8 @@ def main():
     writer = SummaryWriter(comment='_' + 'MNIST' + '_'
                                    + '_lr_' + str(args.lr) + '_'
                                    + '_mode_'+ status + '_'
-                                   + '_optim_'+ opti)
+                                   + '_optim_'+ opti+ '_'
+                                   + '_compress-rate_' + str(args.compress_rate))
     torch.manual_seed(args.seed)
     print(args)
 
@@ -131,9 +138,9 @@ def main():
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
         ])
-    dataset1 = datasets.MNIST('../data', train=True, download=True,
+    dataset1 = datasets.MNIST('./data', train=True, download=True,
                        transform=transform)
-    dataset2 = datasets.MNIST('../data', train=False,
+    dataset2 = datasets.MNIST('./data', train=False,
                        transform=transform)
     train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
@@ -147,9 +154,11 @@ def main():
         net_model = Net(wnorm=True).to(device)
     parameter_total = compute_parameter_total(net_model)
     print('new parameter total:', parameter_total)
+    if args.compress_rate != 0:
+        writer.add_scalar('params', parameter_total, 0)
 
     if args.optimizer == 0:
-        optimizer = optim.SGD(net_model.parameters(), lr=args.lr)#, momentum=0.1)#, weight_decay = 0.1)
+        optimizer = optim.SGD(net_model.parameters(), lr=args.lr)
     elif args.optimizer == 1:
         optimizer = optim.RMSprop(net_model.parameters(), lr=args.lr)
 
@@ -160,8 +169,9 @@ def main():
     if args.mode == 1 and args.compress_rate != 0:
         print('Running compression.....', flush=True)
         net_model = apply_compression(net_model, args.compress_rate)
-    parameter_total = compute_parameter_total(net_model)
-    print('Compression parameter total:', parameter_total)
+        new_parameter_total = compute_parameter_total(net_model)
+        print('Compression parameter total:', new_parameter_total)
+        writer.add_scalar('params', new_parameter_total, 1)
     #scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs+1):
         train(args, net_model, device, train_loader, optimizer, epoch, writer)

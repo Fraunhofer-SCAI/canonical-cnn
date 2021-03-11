@@ -2,9 +2,12 @@ import argparse
 from collections import OrderedDict
 import os
 from os import cpu_count
-import shutil
+from pathlib import Path
 import random
+import shutil
+import sys
 import time
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 import tensorly as tl
 tl.set_backend("pytorch")
@@ -19,9 +22,9 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import numpy as np
 
-from ...cp_compress import apply_compression
-from ...cp_norm import cp_norm
-from ...models.AlexNet_model import AlexNet
+from cp_compress import apply_compression
+from cp_norm import cp_norm
+from models.AlexNet_model import AlexNet
 
 
 parser = argparse.ArgumentParser(description='PyTorch Cifar-AlexNet Training')
@@ -75,7 +78,11 @@ parser.set_defaults(augment=True)
 best_prec1 = 0
 args = parser.parse_args()
 
-args.resume = './exp1_kernel/checkpoint.pth.tar'
+if args.optimizer == 0:
+    args.resume = './test_runs/exp1_kernel_sgd/checkpoint.pth.tar'
+if args.optimizer == 1:
+    args.resume = './test_runs/exp1_kernel_rmsprop/checkpoint.pth.tar'
+
 print(args, flush=True)
 
 print("Tensorboard: ",args.tensorboard, flush=True)
@@ -161,9 +168,12 @@ def main():
     
     if args.mode == 1:
         print("Applying CP Norm", flush=True)
+        print(os.path.isfile(args.resume))
         if os.path.isfile(args.resume):
+            print('inference/fine tuning mode', flush=True)
             model = apply_CP_Norm(model, True)
         else:
+            print('training mode', flush=True)
             model = apply_CP_Norm(model)
         print()
         print("CP Norm application done", flush=True)        

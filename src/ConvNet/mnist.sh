@@ -11,12 +11,6 @@
 module load Anaconda3
 source /home/lveeramacheneni/.bashrc
 conda activate /home/lveeramacheneni/lconda_env
-#module load Singularity
-#singularity exec --nv /opt/software/Singularity/pytorch-19.09-py3.sif python metafile.py
-#python metafile.py
-#source /home/lveeramacheneni/.bashrc
-#conda activate /home/lveeramacheneni/lconda_env
-#echo Modules loaded....
-/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/small_mnist/mnist.py --lr=1e-3 --epochs=50 --mode=1 --optimizer=1
-#/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/small_mnist/metafile.py
+
+/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/ConvNet/mnist.py --lr=1e-3 --epochs=20 --mode=1 --optimizer=0 --compress_rate=75
 

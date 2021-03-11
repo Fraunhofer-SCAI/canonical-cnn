@@ -12,4 +12,4 @@ source /home/lveeramacheneni/.bashrc
 conda activate /home/lveeramacheneni/lconda_env
 echo Modules loaded....
 
-/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/alexnet_compression/alexnet_transfered.py --lr=1e-3 --epochs=160 --optimizer=1 --mode=1 --compress_rate=75
+/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/AlexNet/alexnet_transfered.py --lr=1e-3 --epochs=170 --optimizer=0 --mode=1 --compress_rate=25

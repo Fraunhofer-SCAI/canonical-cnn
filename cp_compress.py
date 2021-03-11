@@ -13,10 +13,10 @@ def compress_via_reparam(layer, compress_rate):
     """
     # If conv layer get four factor matrices because it is 4D tensor
     if isinstance(layer, torch.nn.Conv2d):
+        lmbds = layer.weight_weights
         # Calculate the number of lambds required for compression
         k = int(len(lmbds)*(1-(compress_rate/100)))
         # Read all the parameters of corresponding layer
-        lmbds = layer.weight_weights
         factor_A, factor_B = layer.weight_A, layer.weight_B
         factor_C, factor_D = layer.weight_C, layer.weight_D
         # Sort lambds in descending order & get top k lambdas and vectors
@@ -31,10 +31,10 @@ def compress_via_reparam(layer, compress_rate):
 
     # If linear layer get two factor matrices becuase it is 2D tensor
     if isinstance(layer, torch.nn.Linear):
+        lmbds = layer.weight_weights
         # Calculate the number of lambds required for compression
         k = int(len(lmbds)*(1-(compress_rate/100)))
         # Read all the parameters of corresponding layer
-        lmbds = layer.weight_weights
         factor_A, factor_B = layer.weight_A, layer.weight_B
         # Sort lambds in descending order & get top k lambdas and vectors
         lmbds_sorted, indices = torch.sort(lmbds, descending=True)
@@ -59,6 +59,9 @@ def apply_compression(model, compress_rate):
     """
     # Iterate over each layer of the model and compress Conv and Linear
     for index, (name, layer) in enumerate(model.named_modules()):
-        if isinstance(layer, torch.nn.Conv2d):
+        if isinstance(layer, torch.nn.Conv2d): #or isinstance(layer, torch.nn.Linear):
             layer = compress_via_reparam(layer, compress_rate)
     return model
+
+if __name__ == '__main__':
+    apply_compression(model, compress_rate)
