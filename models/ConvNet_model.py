@@ -13,6 +13,11 @@ from cp_norm import cp_norm, estimate_rank
 from torch.utils.tensorboard.writer import SummaryWriter
 
 class Net(nn.Module):
+    """[summary]
+
+    Args:
+        nn ([type]): [description]
+    """
     # Standard parameter total. 1,199,882
     # CPNorm parameter total. 1,100,308
     def __init__(self, cpnorm=False, wnorm=False):

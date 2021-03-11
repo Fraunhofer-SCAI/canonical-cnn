@@ -17,3 +17,5 @@ src/alexnet_normalization/data
 src/alexnet_normalization/runs
 src/alexnet_normalization/test_runs
 src/alexnet_normalization/__pycache__
+src/cp_norm
+test_cp_norm.py

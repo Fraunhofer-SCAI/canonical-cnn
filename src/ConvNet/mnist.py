@@ -1,17 +1,19 @@
 from __future__ import print_function
 import argparse
 from typing import ValuesView
+
 import numpy as np
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import time
-from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
-from model import Net
 from torch.utils.tensorboard.writer import SummaryWriter
+from torchvision import datasets, transforms
 
+from ...cp_compress import apply_compression
+from ...models.ConvNet_model import Net
 
 
 def compute_parameter_total(net):
@@ -62,41 +64,6 @@ def test(model, device, test_loader, epoch, writer):
         100. * correct / len(test_loader.dataset)))
 
 
-def compress_via_reparam(layer, compress_rate):
-    if isinstance(layer, torch.nn.Conv2d):
-        lmbds = layer.weight_weights
-        k = int(len(lmbds)*(1-(compress_rate/100)))
-        print('k value: ',k, flush=True)
-        A, B = layer.weight_A, layer.weight_B
-        C, D = layer.weight_C, layer.weight_D
-        lmbds_sorted, indices = torch.sort(lmbds, descending=True)
-        lmbds_sorted, indices = lmbds_sorted[0:k], indices[0:k]
-        A, B, C, D = A[:, indices], B[:, indices], C[:, indices], D[:, indices]
-        layer.weight_weights = torch.nn.Parameter(lmbds_sorted)
-        layer.weight_A, layer.weight_B = torch.nn.Parameter(A), torch.nn.Parameter(B)
-        layer.weight_C, layer.weight_D = torch.nn.Parameter(C), torch.nn.Parameter(D)
-
-    if isinstance(layer, torch.nn.Linear):
-        lmbds = layer.weight_weights
-        k = int(len(lmbds)*(1-(compress_rate/100)))
-        print('k value: ',k, flush=True)
-        A, B = layer.weight_A, layer.weight_B
-        lmbds_sorted, indices = torch.sort(lmbds, descending=True)
-        lmbds_sorted, indices = lmbds_sorted[0:k], indices[0:k]
-        A, B = A[:, indices], B[:, indices]
-        layer.weight_weights = torch.nn.Parameter(lmbds_sorted)
-        layer.weight_A, layer.weight_B = torch.nn.Parameter(A), torch.nn.Parameter(B)
-    
-    return layer
-
-
-def apply_compression(model, compress_rate):
-    for index, (name, layer) in enumerate(model.named_modules()):
-        if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, nn.Linear):
-            layer = compress_via_reparam(layer, compress_rate)
-    return model
-
-
 def main():
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -120,14 +87,12 @@ def main():
                         help='how many batches to wait before logging training status')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
-    parser.add_argument('--resume', action='store_true', default=True,
+    parser.add_argument('--resume', action='store_true', default=False,
                         help='Resume training from a stored model.')
     parser.add_argument('--mode', type=int, default=0, metavar='N', 
                         help ='0 for normal, 1 for CPnorm and 2 for weightnorm')
     parser.add_argument('--optimizer', type=int, default=0, metavar='N',
                         help='0 for SGD, 1 for RMSProp')
-    parser.add_argument('--compress_rate', type=int, default=0, metavar='N',
-                        help='Compression rate for the network compression')
 
 
     args = parser.parse_args()
@@ -181,7 +146,8 @@ def main():
     elif args.mode == 2:
         net_model = Net(wnorm=True).to(device)
     parameter_total = compute_parameter_total(net_model)
-    print('Parameter total:', parameter_total)
+    print('new parameter total:', parameter_total)
+
     if args.optimizer == 0:
         optimizer = optim.SGD(net_model.parameters(), lr=args.lr)#, momentum=0.1)#, weight_decay = 0.1)
     elif args.optimizer == 1:
@@ -205,6 +171,7 @@ def main():
     writer.close()
     if args.save_model:
         torch.save(net_model.state_dict(), "./mnist_cnn.pt")
+
 
 
 if __name__ == '__main__':

@@ -1,13 +1,22 @@
-from torch.nn.parameter import Parameter#, UninitializedParameter
-from typing import Any, TypeVar
-from torch.nn import Module
 import tensorly as tl
-import torch
 tl.set_backend('pytorch')
 from tensorly.decomposition import parafac, CPPower
+import torch
+from torch.nn import Module
+from torch.nn.parameter import Parameter
+from typing import Any, TypeVar
 
 
 def estimate_rank(tensor: torch.Tensor, max_it: int = 1000 ) -> int:
+    """This function estimates the rank of the tensor
+
+    Args:
+        tensor (torch.Tensor): [description]
+        max_it (int, optional): [description]. Defaults to 1000.
+
+    Returns:
+        int: [description]
+    """
     for it in range(1, max_it, 2):
         try:
             decomposition = parafac(tensor, rank=it, init='random', random_state = 0)
@@ -23,13 +32,32 @@ def estimate_rank(tensor: torch.Tensor, max_it: int = 1000 ) -> int:
 
 
 class CPNorm(object):
+    """[summary]
+
+    Args:
+        object ([type]): [description]
+
+    Raises:
+        RuntimeError: [description]
+        RuntimeError: [description]
+
+    Returns:
+        [type]: [description]
+    """
     name : str
 
     def __init__(self, name : str) -> None:
         self.name = name
 
     def compute_Weight(self, module: Module) -> Any:
+        """[summary]
 
+        Args:
+            module (Module): [description]
+
+        Returns:
+            Any: [description]
+        """
         weights = getattr(module, self.name+'_weights')
         sigma = getattr(module, self.name+'_sigma')
         if isinstance(module,torch.nn.Conv2d):
@@ -49,6 +77,20 @@ class CPNorm(object):
     
     @staticmethod
     def apply(module, name: str, rank : int, max_iter : int):
+        """[summary]
+
+        Args:
+            module ([type]): [description]
+            name (str): [description]
+            rank (int): [description]
+            max_iter (int): [description]
+
+        Raises:
+            RuntimeError: [description]
+
+        Returns:
+            [type]: [description]
+        """
         for k, hook in module._forward_pre_hooks.items():
             if isinstance(hook, CPNorm) and hook.name == name:
                 raise RuntimeError('This parameter already has CP norm applied')
@@ -84,6 +126,20 @@ class CPNorm(object):
 
     @staticmethod
     def inference_apply(module, name: str, rank : int, max_iter : int):
+        """[summary]
+
+        Args:
+            module ([type]): [description]
+            name (str): [description]
+            rank (int): [description]
+            max_iter (int): [description]
+
+        Raises:
+            RuntimeError: [description]
+
+        Returns:
+            [type]: [description]
+        """
         for k, hook in module._forward_pre_hooks.items():
             if isinstance(hook, CPNorm) and hook.name == name:
                 raise RuntimeError('This parameter already has CP norm applied')
@@ -125,6 +181,11 @@ class CPNorm(object):
 
         return fn
     def remove(self, module: Module) -> None:
+        """[summary]
+
+        Args:
+            module (Module): [description]
+        """
         weight = self.compute_Weight(module)
         delattr(module, self.name)
         del module._parameters[self.name+'_weights']
@@ -140,16 +201,36 @@ class CPNorm(object):
         setattr(module, self.name, Parameter(weight))
     
     def __call__(self, module: Module, inputs : Any) -> None :
+        """[summary]
+
+        Args:
+            module (Module): [description]
+            inputs (Any): [description]
+        """
         setattr(module, self.name, self.compute_Weight(module))
 # End of class
 
 T_module = TypeVar('T_module', bound=Module)
 def cp_norm(module : T_module, rank : int = None, name : str = 'weight', max_iter : int = 100, inference = False):
+    """[summary]
+
+    Args:
+        module (T_module): [description]
+        rank (int, optional): [description]. Defaults to None.
+        name (str, optional): [description]. Defaults to 'weight'.
+        max_iter (int, optional): [description]. Defaults to 100.
+        inference (bool, optional): [description]. Defaults to False.
+
+    Returns:
+        [type]: [description]
+    """
     if rank is None:
         # estimate the tensor rank
         rank = estimate_rank(module.weight)
+    # If inference/fine tuning only decoy CP tensors are formed
     if inference:
         CPNorm.inference_apply(module, name, rank, max_iter)
+    # If training mode CP decomposition is estimated
     else:
         CPNorm.apply(module, name, rank, max_iter)
     return module

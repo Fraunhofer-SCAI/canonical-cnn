@@ -3,7 +3,7 @@ from torch import nn
 
 class AlexNet(nn.Module):
     """
-    AlexNet model as suggested in gitlab issue #6
+    AlexNet like achitecture
     """
     def __init__(self, num_classes: int = 10):
       super(AlexNet, self).__init__()
@@ -33,6 +33,14 @@ class AlexNet(nn.Module):
       )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """[summary]
+
+        Args:
+            x (torch.Tensor): [description]
+
+        Returns:
+            torch.Tensor: [description]
+        """
         x = self.features(x)
         # x = self.avgpool(x)
         x = torch.flatten(x, 1)

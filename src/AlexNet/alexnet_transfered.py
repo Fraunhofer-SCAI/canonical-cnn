@@ -1,28 +1,28 @@
 import argparse
+from collections import OrderedDict
 import os
-import time
 from os import cpu_count
 import shutil
+import random
 import time
 
+import tensorly as tl
+tl.set_backend("pytorch")
 import torch
+import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.nn.parallel
-import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
 from torch.utils.tensorboard.writer import SummaryWriter
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-from alexnet_model import AlexNet
-from CP_N_Way_Decomposition import CP_ALS
-from collections import OrderedDict
-import tensorly as tl
 import numpy as np
-import random
-tl.set_backend("pytorch")
-from tensorly.decomposition import parafac
-from cp_norm import cp_norm
+
+from ...cp_compress import apply_compression
+from ...cp_norm import cp_norm
+from ...models.AlexNet_model import AlexNet
+
 
 parser = argparse.ArgumentParser(description='PyTorch Cifar-AlexNet Training')
 parser.add_argument('--epochs', default=300, type=int,
@@ -75,9 +75,7 @@ parser.set_defaults(augment=True)
 best_prec1 = 0
 args = parser.parse_args()
 
-#args.resume = "./runs/exp1/checkpoint.pth.tar"
 args.resume = './exp1_kernel/checkpoint.pth.tar'
-#args.weight_decay = 0.1
 print(args, flush=True)
 
 print("Tensorboard: ",args.tensorboard, flush=True)
@@ -93,6 +91,7 @@ if args.optimizer == 0:
     used_optim = 'SGD'
 elif args.optimizer == 1:
     used_optim = 'RMSProp'
+
 if args.tensorboard:
     writer = SummaryWriter(comment='_' + args.data_set + '_'
                                    + '_lr_' + str(args.lr)
@@ -100,7 +99,7 @@ if args.tensorboard:
                                    + '_rank_' + str(args.rank)+ '_'
                                    + '_mode_' + status + '_'
                                    + '_optim_'+ used_optim + '_'
-                                   + '_wdecay_' + str(args.weight_decay))
+                                   + '_compress-rate_' + str(args.compress_rate))
 
 
 def main():
@@ -250,7 +249,7 @@ def main():
         }, is_best)
     print('Best accuracy: ', best_prec1)
 
-def apply_CP_Norm(model, inference_type):#
+def apply_CP_Norm(model, inference_type = False):
     ranks = [40, 571, 1540, 1800, 1482]
     model = model.cpu()
     c = 0
@@ -311,49 +310,12 @@ def train(train_loader, model, criterion, optimizer, epoch, activation):
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
                       loss=closses, top1=top1))
-    # Get activation maps between the layers and unfold them
-    # Calculate the mean norm and flatten norm
-    mean_norm = []
-    flatten_norm = []
-    for index, key in enumerate(activation):
-        inp = activation[key]
-        kernel = (1, 1)
-        if index == 2:
-            kernel == (3, 3)
-        inp_unf = torch.nn.functional.unfold(inp, kernel)
-        norms = []
-        for index in range(0, inp_unf.shape[0]):
-            norms.append(np.linalg.norm(inp_unf[index, :, :].cpu().detach().numpy(), ord=2))
-        mean_norm.append(sum(norms)/len(norms))
-        flatten_norm.append(np.linalg.norm(inp_unf.flatten().cpu().detach().numpy(), ord=2))
-    weight_norms = []
-    for index, (n, p) in enumerate(model.named_parameters()):
-        if index in [2, 3, 4, 5]:
-            print(p.size())
-            p_unfolded = p.view(p.size(0), -1)
-            weight_norms.append(np.linalg.norm(p_unfolded.cpu().detach().numpy(), ord=2))
-
-
-    
-
     # log to TensorBoard
     if args.tensorboard:
         #log_value('train_loss', losses.avg, epoch)
         writer.add_scalar('train_loss', closses.avg, epoch)
         # log_value('train_acc', top1.avg, epoch)
         writer.add_scalar('train_acc', top1.avg, epoch)
-
-        writer.add_scalar("Layer 2 input mean norm", mean_norm[0], epoch)
-        writer.add_scalar("Layer 3 input mean norm", mean_norm[1], epoch)
-        writer.add_scalar("Layer 4 input mean norm", mean_norm[2], epoch) 
-        
-        writer.add_scalar("Layer 2 input flatten norm", flatten_norm[0], epoch) 
-        writer.add_scalar("Layer 3 input flatten norm", flatten_norm[1], epoch) 
-        writer.add_scalar("Layer 4 input flatten norm", flatten_norm[2], epoch) 
-
-        writer.add_scalar("Layer 2 weight norm", weight_norms[0], epoch)
-        writer.add_scalar("Layer 3 weight norm", weight_norms[1], epoch)
-        writer.add_scalar("Layer 4 weight norm", weight_norms[2], epoch)
         
 
 def validate(val_loader, model, criterion, epoch):
@@ -443,6 +405,7 @@ def adjust_learning_rate(optimizer, epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
+
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
     maxk = max(topk)
@@ -458,97 +421,6 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
-
-
-def replace_layer(AlexNet_model, layer):
-    AlexNet_model = AlexNet_model.cpu()
-    # weight_tensor = AlexNet_model.features[layer].weight.data
-    g_weight = AlexNet_model.features[layer].weight_g.data
-    v_weight = AlexNet_model.features[layer].weight_v.data
-    weight_tensor = g_weight * v_weight
-    # weight_tensor = v_weight
-    max_iter = 200
-    cp = CP_ALS()
-    
-    ## Implementation from https://github.com/ruihangdu/Decompose-CNN/blob/master/scripts/torch_cp_decomp.py
-
-    # last, first, vertical, horizontal = parafac(weight_tensor, rank=args.rank, init='random', n_iter_max = max_iter)[1]
-    last, first, vertical, horizontal = cp.compute_ALS(weight_tensor, max_iter, args.rank)[0]
-    # Uncomment the below two lines in case of normalized CP Decomposition
-    # factors, lmbds = cp.compute_ALS(weight_tensor, max_iter, args.rank, norms=True)
-    # last, first, vertical, horizontal = factors[0], factors[1], factors[2], factors[3]
-        
-    pointwise_s_to_r_layer = nn.Conv2d(in_channels=first.shape[0],
-                                       out_channels=first.shape[1],
-                                       kernel_size=1,
-                                       padding=0,
-                                       bias=False)
-
-    depthwise_r_to_r_layer = nn.Conv2d(in_channels=args.rank,
-                                       out_channels=args.rank,
-                                       kernel_size=vertical.shape[0],
-                                       stride=AlexNet_model.features[layer].stride,
-                                       padding=AlexNet_model.features[layer].padding,
-                                       dilation=AlexNet_model.features[layer].dilation,
-                                       groups=args.rank,
-                                       bias=False)
-                                       
-    pointwise_r_to_t_layer = nn.Conv2d(in_channels=last.shape[1],
-                                       out_channels=last.shape[0],
-                                       kernel_size=1,
-                                       padding=0,
-                                       bias=True)
-    
-    if AlexNet_model.features[layer].bias is not None:
-        pointwise_r_to_t_layer.bias.data = AlexNet_model.features[layer].bias.data
-    
-    sr = first.t_().unsqueeze_(-1).unsqueeze_(-1)
-    rt = last.unsqueeze_(-1).unsqueeze_(-1)
-    rr = torch.stack([vertical.narrow(1, i, 1) @ torch.t(horizontal).narrow(0, i, 1) for i in range(args.rank)]).unsqueeze_(1)
-    pointwise_s_to_r_layer.weight.data = sr 
-    pointwise_r_to_t_layer.weight.data = rt
-    depthwise_r_to_r_layer.weight.data = rr
-    model = [pointwise_s_to_r_layer, depthwise_r_to_r_layer, pointwise_r_to_t_layer]
-
-    AlexNet_model.features = nn.Sequential(\
-        *(list(AlexNet_model.features[:layer]) + model + list(AlexNet_model.features[layer + 1:])))
-    if not args.cpu:
-        AlexNet_model = AlexNet_model.cuda()
-    return AlexNet_model
-
-def compress_via_reparam(layer, compress_rate):
-    if isinstance(layer, torch.nn.Conv2d):
-        lmbds = layer.weight_weights
-        k = int(len(lmbds)*(1-(compress_rate/100)))
-        print('k value: ',k, flush=True)
-        A, B = layer.weight_A, layer.weight_B
-        C, D = layer.weight_C, layer.weight_D
-        lmbds_sorted, indices = torch.sort(lmbds, descending=True)
-        lmbds_sorted, indices = lmbds_sorted[0:k], indices[0:k]
-        A, B, C, D = A[:, indices], B[:, indices], C[:, indices], D[:, indices]
-        layer.weight_weights = torch.nn.Parameter(lmbds_sorted)
-        layer.weight_A, layer.weight_B = torch.nn.Parameter(A), torch.nn.Parameter(B)
-        layer.weight_C, layer.weight_D = torch.nn.Parameter(C), torch.nn.Parameter(D)
-
-    if isinstance(layer, torch.nn.Linear):
-        lmbds = layer.weight_weights
-        k = int(len(lmbds)*(1-(compress_rate/100)))
-        print('k value: ',k, flush=True)
-        A, B = layer.weight_A, layer.weight_B
-        lmbds_sorted, indices = torch.sort(lmbds, descending=True)
-        lmbds_sorted, indices = lmbds_sorted[0:k], indices[0:k]
-        A, B = A[:, indices], B[:, indices]
-        layer.weight_weights = torch.nn.Parameter(lmbds_sorted)
-        layer.weight_A, layer.weight_B = torch.nn.Parameter(A), torch.nn.Parameter(B)
-    
-    return layer
-
-
-def apply_compression(model, compress_rate):
-    for index, (name, layer) in enumerate(model.named_modules()):
-        if isinstance(layer, torch.nn.Conv2d):
-            layer = compress_via_reparam(layer, compress_rate)
-    return model
 
 if __name__ == '__main__':
     main()
