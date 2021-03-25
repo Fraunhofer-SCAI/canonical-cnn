@@ -9,4 +9,4 @@ source /home/lveeramacheneni/.bashrc
 conda activate /home/lveeramacheneni/lconda_env
 echo Modules loaded....
 
-CUDA_VISIBLE_DEVICES=6 /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/AlexNet/alexnet_transfered.py --lr=1e-2 --epochs=20 --optimizer=0 --mode=1 --compress_rate=75 --data_set='SVHN'
+/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/scripts/AlexNet/alexnet_transfered.py --lr=1e-2 --epochs=1 --optimizer=0 --mode=1 --compress_rate=0 --data_set='SVHN'

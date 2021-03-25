@@ -1,3 +1,7 @@
+# ====================================================================
+# Train LeNet like architecture
+# ====================================================================
+
 from __future__ import print_function, absolute_import
 import argparse
 from typing import ValuesView
@@ -15,11 +19,20 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard.writer import SummaryWriter
 from torchvision import datasets, transforms
 
-from cp_compress import apply_compression
+from src.cp_compress import apply_compression
 from models.ConvNet_model import Net
 
 
 def compute_parameter_total(net):
+    """
+    Method to compute the total number of parameters in the model
+
+    Args:
+     Net [model]: Model instance to compute total parameters
+    
+    Returns:
+     [int]: Total number of paramters for the instantiated model
+    """
     total = 0
     for p in net.parameters():
         if p.requires_grad:
@@ -29,14 +42,31 @@ def compute_parameter_total(net):
 
 
 def train(args, model, device, train_loader, optimizer, epoch, writer):
+    """
+    Method to train the model with corresponding dataloader & write 
+    result to tensorboard session
+
+    Args:
+        args (parser): Argument parser holding all hyperparameters
+        model (Net): Instance of model [Net] 
+        device (str): String holding type of device [cpu or cuda]
+        train_loader (dataloader): Dataloader for trainig images
+        optimizer (optimizer): Specified optimizer
+        epoch (int): Current training epoch
+        writer (SummaryWriter): Summary writer object for tensorboard
+    """
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
+        # Forward pass
         output = model(data)
+        # Loss calculation
         loss = F.nll_loss(output, target)
         loss.backward()
+        # Backward pass
         optimizer.step()
+        # Printing and tensorboard writer
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -47,9 +77,21 @@ def train(args, model, device, train_loader, optimizer, epoch, writer):
 
 
 def test(model, device, test_loader, epoch, writer):
+    """
+    Method to test the model with corresponding dataloader & write 
+    result to tensorboard session
+
+    Args:
+        model (Net): Instance of model [Net]
+        device (str): String holding type of device [cpu or cuda]
+        test_loader (dataloader): Dataloader for testing images
+        epoch (int): Current training epoch
+        writer (SummaryWriter): Summary writer object for tensorboard
+    """
     model.eval()
     test_loss = 0
     correct = 0
+    # Forward pass on testing images
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
@@ -58,8 +100,10 @@ def test(model, device, test_loader, epoch, writer):
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
+    # Accuracy calculation
     test_loss /= len(test_loader.dataset)
     accuracy = 100. * correct / len(test_loader.dataset)
+    # Printing and tensorboard writing
     writer.add_scalar('test_loss', test_loss, epoch)
     writer.add_scalar('test_acc', accuracy, epoch)
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
@@ -105,6 +149,7 @@ def main():
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     status = ''
+    # Summary writer initalization
     if args.mode == 0:
         status = 'None'
     elif args.mode == 1:
@@ -120,12 +165,14 @@ def main():
                                    + '_lr_' + str(args.lr) + '_'
                                    + '_mode_'+ status + '_'
                                    + '_optim_'+ opti+ '_'
-                                   + '_compress-rate_' + str(args.compress_rate))
+                                   + '_compress-rate_' + 
+                                   str(args.compress_rate))
     torch.manual_seed(args.seed)
     print(args)
 
     device = torch.device("cuda:0" if use_cuda else "cpu")
     print('deivce: ', device, flush=True)
+    # Dataloader creation
     train_kwargs = {'batch_size': args.batch_size}
     test_kwargs = {'batch_size': args.test_batch_size}
     if use_cuda:
@@ -146,6 +193,7 @@ def main():
     train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
+    # Model instantiation
     net_model = None
     if args.mode == 0:
         net_model = Net().to(device)
@@ -158,6 +206,7 @@ def main():
     if args.compress_rate != 0:
         writer.add_scalar('params', parameter_total, 0)
 
+    # Optimizer creation
     if args.optimizer == 0:
         optimizer = optim.SGD(net_model.parameters(), lr=args.lr)
     elif args.optimizer == 1:
@@ -174,11 +223,13 @@ def main():
         print('Compression parameter total:', new_parameter_total)
         writer.add_scalar('params', new_parameter_total, 1)
     #scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    # Trainig loop
     for epoch in range(1, args.epochs+1):
         train(args, net_model, device, train_loader, optimizer, epoch, writer)
         test(net_model, device, test_loader, epoch, writer)
         #scheduler.step()
 
+    # Save parameters in tensorboard and save the model
     writer.close()
     if args.save_model:
         fname = './mnist_cnn_rmsprop_crate-'+str(args.compress_rate)+'.pt'

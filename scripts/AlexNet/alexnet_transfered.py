@@ -1,3 +1,6 @@
+# ==================================================================
+# AlexNet trianing/Validaion procedure
+# ==================================================================
 import argparse
 from collections import OrderedDict
 import os
@@ -9,6 +12,7 @@ import sys
 import time
 sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
+import numpy as np
 import tensorly as tl
 tl.set_backend("pytorch")
 import torch
@@ -20,10 +24,9 @@ import torch.utils.data
 from torch.utils.tensorboard.writer import SummaryWriter
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import numpy as np
 
-from cp_compress import apply_compression
-from cp_norm import cp_norm
+from src.cp_compress import apply_compression
+from src.cp_norm import cp_norm
 from models.AlexNet_model import AlexNet
 
 
@@ -78,14 +81,17 @@ parser.set_defaults(augment=True)
 best_prec1 = 0
 args = parser.parse_args()
 
+# Path for saved weights
 #if args.optimizer == 0:
 #    args.resume = './test_runs/exp1_kernel_sgd/checkpoint.pth.tar'
 #if args.optimizer == 1:
 #args.resume = './test_runs/RMSProp_weight_1/model_best.pth.tar'
-args.resume = './test_runs/SGD_weight/model_best.pth.tar'
+#args.resume = './test_runs/SGD_weight/model_best.pth.tar'
 print(args, flush=True)
 
 print("Tensorboard: ",args.tensorboard, flush=True)
+
+# Summary writer creation
 status = None
 if args.mode == 0:
     status = 'None'
@@ -152,6 +158,7 @@ def main():
     kwargs = {'num_workers': 1, 'pin_memory': True}
     train_loader = None
     val_loader = None
+    # CIFAR10 dataset
     if args.data_set == 'cifar10':
         train_loader = torch.utils.data.DataLoader(
             datasets.CIFAR10('./data', train=True, download=True,
@@ -160,6 +167,7 @@ def main():
         val_loader = torch.utils.data.DataLoader(
             datasets.CIFAR10('./data', train=False, transform=transform_test),
             batch_size=args.batch_size, shuffle=True, **kwargs)
+    # SVHN dataset
     elif args.data_set == 'SVHN':
         train_loader = torch.utils.data.DataLoader(
            datasets.SVHN('./svhn_data', split='train', download=True,
@@ -171,17 +179,17 @@ def main():
                          batch_size=args.batch_size, shuffle=True, **kwargs)
     else:
         print('Unknown dataset', flush=True)
-    # create model
+    # model instantiation
     if args.model == 'AlexNet':
         model = AlexNet()
     else:
         raise ValueError('Unkown model.')
-    # print(model)
 
     # get the number of model parameters
     print('Number of model parameters before: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])), flush=True)
     
+    # Apply CP norm based on inference/training mode
     if args.mode == 1:
         print("Applying CP Norm", flush=True)
         print(os.path.isfile(args.resume))
@@ -192,7 +200,8 @@ def main():
             print('training mode', flush=True)
             model = apply_CP_Norm(model)
         print()
-        print("CP Norm application done", flush=True)        
+        print("CP Norm application done", flush=True)    
+    # Apply weight norm    
     elif args.mode == 2:
         print('Applying weight norm', flush=True)
         model = apply_Weight_Norm(model)
@@ -224,16 +233,6 @@ def main():
     if args.mode == 1 and args.compress_rate != 0:
         print('Running compression.....', flush=True)
         model = apply_compression(model, args.compress_rate)
-
-    activation = {}
-    def get_activation(name):
-        def hook(model, input, output):
-            activation[name] = output.detach()
-        return hook
-    
-    for index, (name, lay) in enumerate(model.named_modules()):
-        if index in [5, 6, 8]:
-            lay.register_forward_hook(get_activation(name))
      
     # define loss function (criterion) and optimizer
     if not args.cpu:
@@ -257,7 +256,8 @@ def main():
     writer.add_scalar('Parameters', no_params, 0)
     print('using :', optimizer)
     print("Afer optim")
-
+    
+    # Training loop
     wait = 0
     patience = 8
     min_val_loss = np.Inf
@@ -266,7 +266,7 @@ def main():
         #adjust_learning_rate(optimizer, epoch)
         # train for one epoch
         # model = apply_Weight_Norm(model)
-        train(train_loader, model, criterion, optimizer, epoch, activation)
+        train(train_loader, model, criterion, optimizer, epoch)
 
         # evaluate on validation set
         prec1, val_loss = validate(val_loader, model, criterion, epoch)
@@ -281,7 +281,7 @@ def main():
             'best_prec1': best_prec1,
         }, is_best)
 
-        # Early stopping code
+        ## Early stopping code
         #if val_loss<= min_val_loss:
         #    print('Loss decreased', flush=True)
         #    wait = 0
@@ -294,16 +294,32 @@ def main():
     print('Best accuracy: ', best_prec1)
 
 def apply_CP_Norm(model, inference_type = False):
+    """
+    Method to apply CP Normalization over the required layers. In this 
+    case the whole network
+
+    Args:
+        model (Net): Model instance [Net] 
+        inference_type (bool, optional): Boolean variable for inference 
+                                         or trianing mode. Defaults to False.
+
+    Returns:
+        [Net]: CP norm applied model instance
+    """
+    # Ranks for convolutional layers
     ranks = [36, 571, 1626, 1948, 1644]
     model = model.cpu()
     c = 0
+    # Apply CPnorm over convolutional layers
     for index, (name, layer) in enumerate(model.named_modules()):
         if isinstance(layer, nn.Conv2d):
             print('Norm on layer: ', name)
             layer = cp_norm(layer, ranks[c], inference=inference_type)
             c+=1
+    # Ranks for linear layers
     linear_ranks = [1024, 512, 10]
     c = 0
+    # Apply CPnorm over linear layers
     for index, (name, layer) in enumerate(model.named_modules()):
         if isinstance(layer, nn.Linear):
             layer = cp_norm(layer, linear_ranks[c], inference=inference_type)
@@ -312,13 +328,32 @@ def apply_CP_Norm(model, inference_type = False):
     return model
 
 def apply_Weight_Norm(model):
+    """
+    Method to apply weight norm over required layers. In this case the
+    whole network
+
+    Args:
+        model (Net): Model instance [Net] 
+
+    Returns:
+        [Net]: Weight norm applied model instance
+    """
     for index, (name, layer) in enumerate(model.named_modules()):
         if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
             layer = torch.nn.utils.weight_norm(layer)
     return model
 
-def train(train_loader, model, criterion, optimizer, epoch, activation):
-    """Train for one epoch on the training set"""
+def train(train_loader, model, criterion, optimizer, epoch):
+    """
+    Method to train for one epoch on training set
+
+    Args:
+        train_loader (Dataloader): Dataloader object of training examples
+        model (Net): Model instance [Net] 
+        criterion (Criterion): Loss function for the training loop
+        optimizer (Optimizer): Specified optimizer for the training
+        epoch (int): Current epoch value
+    """
     batch_time = AverageMeter()
     closses = AverageMeter()
     top1 = AverageMeter()
@@ -370,7 +405,19 @@ def train(train_loader, model, criterion, optimizer, epoch, activation):
         
 
 def validate(val_loader, model, criterion, epoch):
-    """Perform validation on the validation set"""
+    """
+    Method to perform validation on validation set
+
+    Args:
+        val_loader (Datalaoder): Dataloader object with validation examples
+        model (Net): Model instance [Net] 
+        criterion (Criterion): Loss function for the training loop
+        epoch (int): Current epoch value
+
+    Returns:
+        [float]: top 1% accuracy average value
+        [float]: Validation loss average value
+    """
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -419,17 +466,30 @@ def validate(val_loader, model, criterion, epoch):
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    """Saves checkpoint to disk"""
+    """
+    Method to save the checkpoint to disk
+
+    Args:
+        state (dict): A dictionary containing the state values
+        is_best (bool): Boolean value to specify best model
+        filename (str, optional): Fine name. Defaults to 'checkpoint.pth.tar'.
+    """
     directory = "test_runs/%s/"%(args.name)
     if not os.path.exists(directory):
         os.makedirs(directory)
     filename = directory + filename
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'test_runs/%s/'%(args.name) + 'model_best.pth.tar')
+        shutil.copyfile(filename, 'test_runs/%s/'%(args.name) + 
+                        'model_best.pth.tar')
 
 class AverageMeter(object):
-    """Computes and stores the average and current value"""
+    """
+    Method to compute the average and current value
+
+    Args:
+
+    """
     def __init__(self):
         self.reset()
 
@@ -458,7 +518,17 @@ def adjust_learning_rate(optimizer, epoch):
 
 
 def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
+    """
+    Computes the precision@k for the specified values of k
+
+    Args:
+        output (Tensor): Tensor containing the predicted classes
+        target (Tensor): Tensor containing the labels
+        topk (tuple, optional): Calculate particular k. Defaults to (1,).
+
+    Returns:
+        [float]: top k precision calculated value
+    """
     maxk = max(topk)
     batch_size = target.size(0)
 

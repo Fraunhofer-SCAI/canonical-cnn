@@ -1,18 +1,14 @@
-workbench/
-main/
-scripts/
 *.txt
 *.pt
-src/ConvNet/runs
-src/ConvNet/data/
-src/AlexNet/data
-src/AlexNet/runs
-src/AlexNet/test_runs
-src/cp_norm
-test_cp_norm.py
+scripts/ConvNet/runs
+scripts/ConvNet/data/
+scripts/AlexNet/data
+scripts/AlexNet/runs
+scripts/AlexNet/test_runs
+scripts/test_cp_norm.py
 __pycache__/
 models/__pycache__
-src/AlexNet/svhn_data
-src/ConvNet/.giosaveGkzzha
+scripts/AlexNet/svhn_data
+scripts/ConvNet/.giosaveGkzzha
 
 
