@@ -36,10 +36,14 @@ class Net(nn.Module):
         #    self.fc2 = cp_norm(self.fc2, rank=9)
 # Full rank
         if cpnorm is True and wnorm is False:
-            self.conv1 = cp_norm(self.conv1, rank=16)
-            self.conv2 = cp_norm(self.conv2, rank=261)
-            self.fc1 = cp_norm(self.fc1, rank=136)
-            self.fc2 = cp_norm(self.fc2, rank=16)
+            print('CPNorm for layer1', flush=True)
+            self.conv1 = cp_norm(self.conv1, rank=11, inference=True)
+            print('CPNorm for layer2', flush=True)
+            self.conv2 = cp_norm(self.conv2, rank=270, inference=True)
+            print('CPNorm for layer3', flush=True)
+            self.fc1 = cp_norm(self.fc1, rank=128, inference=True)
+            print('CPNorm for layer4', flush=True)
+            self.fc2 = cp_norm(self.fc2, rank=10, inference=True)
 
         elif cpnorm is False and wnorm is True:
             self.conv1 = weight_norm(self.conv1)

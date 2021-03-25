@@ -36,7 +36,7 @@ parser.add_argument('-b', '--batch-size', default=128, type=int,
                     help='mini-batch size (default: 64)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     help='initial learning rate')
-parser.add_argument('--momentum', default=0.6, type=float, help='momentum')
+parser.add_argument('--momentum', default=0.0, type=float, help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=0., type=float,
                     help='weight decay (default: 1e-4)')
 parser.add_argument('--print-freq', '-p', default=10, type=int,
@@ -78,11 +78,11 @@ parser.set_defaults(augment=True)
 best_prec1 = 0
 args = parser.parse_args()
 
-if args.optimizer == 0:
-    args.resume = './test_runs/exp1_kernel_sgd/checkpoint.pth.tar'
-if args.optimizer == 1:
-    args.resume = './test_runs/exp1_kernel_rmsprop/checkpoint.pth.tar'
-
+#if args.optimizer == 0:
+#    args.resume = './test_runs/exp1_kernel_sgd/checkpoint.pth.tar'
+#if args.optimizer == 1:
+#args.resume = './test_runs/RMSProp_weight_1/model_best.pth.tar'
+args.resume = './test_runs/SGD_weight/model_best.pth.tar'
 print(args, flush=True)
 
 print("Tensorboard: ",args.tensorboard, flush=True)
@@ -96,8 +96,10 @@ elif args.mode == 2:
 used_optim = None
 if args.optimizer == 0:
     used_optim = 'SGD'
+    args.name= 'SGD_weight_SVHN'
 elif args.optimizer == 1:
     used_optim = 'RMSProp'
+    args.name= 'RMSProp_weight_svhn'
 
 if args.tensorboard:
     writer = SummaryWriter(comment='_' + args.data_set + '_'
@@ -105,7 +107,7 @@ if args.tensorboard:
                                    + '_m_' + str(args.momentum)+ '_'
                                    + '_rank_' + str(args.rank)+ '_'
                                    + '_mode_' + status + '_'
-                                   + '_optim_'+ used_optim + '_'
+                                   + '_optim_'+ used_optim + '_neumodel_'
                                    + '_compress-rate_' + str(args.compress_rate))
 
 
@@ -122,6 +124,10 @@ def main():
         normalize = transforms.Normalize(
             mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
             std=[x/255.0 for x in [63.0, 62.1, 66.7]])
+    elif args.data_set == 'SVHN':
+        normalize = transforms.Normalize(
+            mean=[x/255.0 for x in [111.6, 113.2, 120.6]],
+            std=[x/255.0 for x in [50.5, 51.3, 50.2]])
     else:
         raise ValueError('Unkown data set.')
 
@@ -154,7 +160,17 @@ def main():
         val_loader = torch.utils.data.DataLoader(
             datasets.CIFAR10('./data', train=False, transform=transform_test),
             batch_size=args.batch_size, shuffle=True, **kwargs)
-
+    elif args.data_set == 'SVHN':
+        train_loader = torch.utils.data.DataLoader(
+           datasets.SVHN('./svhn_data', split='train', download=True,
+                         transform=transform_train),
+                         batch_size=args.batch_size, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(
+            datasets.SVHN('./svhn_data', split='test', download=True,
+                         transform=transform_test),
+                         batch_size=args.batch_size, shuffle=True, **kwargs)
+    else:
+        print('Unknown dataset', flush=True)
     # create model
     if args.model == 'AlexNet':
         model = AlexNet()
@@ -194,6 +210,7 @@ def main():
             print("=> loading checkpoint '{}'".format(args.resume), flush=True)
             checkpoint = torch.load(args.resume)
             args.start_epoch = checkpoint['epoch']
+            args.epochs += args.start_epoch
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])
             print("=> loaded checkpoint '{}' (epoch {})"
@@ -236,9 +253,14 @@ def main():
     #                              weight_decay=args.weight_decay)
     print('Number of model parameters after: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])), flush=True)
-
+    no_params = sum([p.data.nelement() for p in model.parameters()])
+    writer.add_scalar('Parameters', no_params, 0)
     print('using :', optimizer)
     print("Afer optim")
+
+    wait = 0
+    patience = 8
+    min_val_loss = np.Inf
     for epoch in range(args.start_epoch, args.epochs):
         print("Epoch: ", epoch)
         #adjust_learning_rate(optimizer, epoch)
@@ -247,7 +269,8 @@ def main():
         train(train_loader, model, criterion, optimizer, epoch, activation)
 
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion, epoch)
+        prec1, val_loss = validate(val_loader, model, criterion, epoch)
+
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -257,22 +280,40 @@ def main():
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
         }, is_best)
+
+        # Early stopping code
+        #if val_loss<= min_val_loss:
+        #    print('Loss decreased', flush=True)
+        #    wait = 0
+        #    min_val_loss = val_loss
+        #else:
+        #    wait += 1
+        #    if wait >= patience:
+        #        print('Terminating becuase of early stopping', flush=True)
+        #        break
     print('Best accuracy: ', best_prec1)
 
 def apply_CP_Norm(model, inference_type = False):
-    ranks = [40, 571, 1540, 1800, 1482]
+    ranks = [36, 571, 1626, 1948, 1644]
     model = model.cpu()
     c = 0
     for index, (name, layer) in enumerate(model.named_modules()):
         if isinstance(layer, nn.Conv2d):
+            print('Norm on layer: ', name)
             layer = cp_norm(layer, ranks[c], inference=inference_type)
+            c+=1
+    linear_ranks = [1024, 512, 10]
+    c = 0
+    for index, (name, layer) in enumerate(model.named_modules()):
+        if isinstance(layer, nn.Linear):
+            layer = cp_norm(layer, linear_ranks[c], inference=inference_type)
             c+=1
     model = model.cuda()
     return model
 
 def apply_Weight_Norm(model):
     for index, (name, layer) in enumerate(model.named_modules()):
-        if isinstance(layer, nn.Conv2d):# or isinstance(layer, nn.Linear):
+        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
             layer = torch.nn.utils.weight_norm(layer)
     return model
 
@@ -374,7 +415,7 @@ def validate(val_loader, model, criterion, epoch):
         writer.add_scalar('val_loss', losses.avg, epoch)
         # log_value('val_acc', top1.avg, epoch)
         writer.add_scalar('val_acc', top1.avg, epoch)
-    return top1.avg
+    return top1.avg, losses.avg
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):

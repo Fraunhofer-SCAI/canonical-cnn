@@ -40,7 +40,7 @@ def train(args, model, device, train_loader, optimizer, epoch, writer):
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
+                100. * batch_idx / len(train_loader), loss.item()), flush=True)
             if args.dry_run:
                 break
         writer.add_scalar('train_loss', loss.item(), epoch)
@@ -64,10 +64,11 @@ def test(model, device, test_loader, epoch, writer):
     writer.add_scalar('test_acc', accuracy, epoch)
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
+        100. * correct / len(test_loader.dataset)), flush=True)
 
 
 def main():
+    torch.autograd.set_detect_anomaly(True)
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
@@ -90,7 +91,7 @@ def main():
                         help='how many batches to wait before logging training status')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
-    parser.add_argument('--resume', action='store_true', default=True,
+    parser.add_argument('--resume', action='store_true', default=False,
                         help='Resume training from a stored model.')
     parser.add_argument('--mode', type=int, default=0, metavar='N', 
                         help ='0 for normal, 1 for CPnorm and 2 for weightnorm')
@@ -128,7 +129,7 @@ def main():
     train_kwargs = {'batch_size': args.batch_size}
     test_kwargs = {'batch_size': args.test_batch_size}
     if use_cuda:
-        cuda_kwargs = {'num_workers': 1,
+        cuda_kwargs = {'num_workers': 2,
                        'pin_memory': True,
                        'shuffle': True}
         train_kwargs.update(cuda_kwargs)
@@ -153,7 +154,7 @@ def main():
     elif args.mode == 2:
         net_model = Net(wnorm=True).to(device)
     parameter_total = compute_parameter_total(net_model)
-    print('new parameter total:', parameter_total)
+    print('new parameter total ###:', parameter_total, flush=True)
     if args.compress_rate != 0:
         writer.add_scalar('params', parameter_total, 0)
 
@@ -163,7 +164,7 @@ def main():
         optimizer = optim.RMSprop(net_model.parameters(), lr=args.lr)
 
     if args.resume:
-        net_model.load_state_dict(torch.load("./mnist_cnn.pt"))
+        net_model.load_state_dict(torch.load("./mnist_cnn_rmsprop.pt"))
 
     # Compression code
     if args.mode == 1 and args.compress_rate != 0:
@@ -180,7 +181,8 @@ def main():
 
     writer.close()
     if args.save_model:
-        torch.save(net_model.state_dict(), "./mnist_cnn.pt")
+        fname = './mnist_cnn_rmsprop_crate-'+str(args.compress_rate)+'.pt'
+        torch.save(net_model.state_dict(), fname)
 
 
 

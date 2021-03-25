@@ -100,25 +100,27 @@ class CPNorm(object):
         weight_tensor = getattr(module, name)
 
         del module._parameters[name]
-
-        #factors = parafac(weight_tensor, rank= rank, init='random', random_state = 0, 
-        #                  n_iter_max = max_iter, normalize_factors = False)
+        if not weight_tensor.is_cuda:
+            tensor_ = tl.tensor(weight_tensor, device='cuda:0', dtype=tl.float32)
+        # factors = parafac(tensor_, rank= rank, init='random', 
+        #                   n_iter_max = max_iter, normalize_factors = False)
+        
         CPP = CPPower(rank = rank)
-        factors = CPP.fit_transform(weight_tensor)
+        factors = CPP.fit_transform(tensor_)
         
         if isinstance(module, torch.nn.Conv2d):
-            A, B, C, D = factors[1][0], factors[1][1], factors[1][2], factors[1][3] 
+            A, B, C, D = factors[1][0].cpu(), factors[1][1].cpu(), factors[1][2].cpu(), factors[1][3].cpu() 
             module.register_parameter(name+'_A', Parameter(A))
             module.register_parameter(name+'_B', Parameter(B))
             module.register_parameter(name+'_C', Parameter(C))
             module.register_parameter(name+'_D', Parameter(D))
 
         elif isinstance(module, torch.nn.Linear):
-            A, B = factors[1][0], factors[1][1]
+            A, B = factors[1][0].cpu(), factors[1][1].cpu()
             module.register_parameter(name+'_A', Parameter(A))
             module.register_parameter(name+'_B', Parameter(B))
         module.register_parameter(name+'_sigma', Parameter(torch.tensor([1], dtype=torch.float32)))
-        module.register_parameter(name+'_weights', Parameter(factors[0]))
+        module.register_parameter(name+'_weights', Parameter(factors[0].cpu()))
         setattr(module, name, fn.compute_Weight(module))
         module.register_forward_pre_hook(fn)
 

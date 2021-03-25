@@ -12,5 +12,7 @@ src/cp_norm
 test_cp_norm.py
 __pycache__/
 models/__pycache__
+src/AlexNet/svhn_data
+src/ConvNet/.giosaveGkzzha
 
 

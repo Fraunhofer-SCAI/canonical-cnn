@@ -59,7 +59,7 @@ def apply_compression(model, compress_rate):
     """
     # Iterate over each layer of the model and compress Conv and Linear
     for index, (name, layer) in enumerate(model.named_modules()):
-        if isinstance(layer, torch.nn.Conv2d): #or isinstance(layer, torch.nn.Linear):
+        if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
             layer = compress_via_reparam(layer, compress_rate)
     return model
 
