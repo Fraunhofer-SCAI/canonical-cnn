@@ -46,9 +46,9 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     help='print frequency (default: 10)')
 parser.add_argument('--no-augment', dest='augment', action='store_false',
                     help='whether to use standard augmentation (default: True)')
-parser.add_argument('--resume', default='', type=str,
-                    help='path to latest checkpoint (default: none)')
-parser.add_argument('--name', default='exp1_kernel', type=str,
+parser.add_argument('--resume', action='store_true', default=False,
+                        help='Resume training from a stored model.')
+parser.add_argument('--name', default='exp1', type=str,
                     help='name of experiment')
 parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true',
@@ -67,12 +67,12 @@ parser.add_argument('--nesterov',
 parser.add_argument('--description',
                     help='Description for overall experiment', type=str,
                     default="None")
-parser.add_argument('--layer',default=3, type=int, help='layer to replace in network' )
-parser.add_argument('--rank', default = 448, type=int, help='Decomposition rank')
-parser.add_argument('--mode', default=0, type=int, help='If 0 then normal, else if 1 then cpnorm or else\
-                    2 then weight norm')
-parser.add_argument('--optimizer', default=0, type=int, help='Select an optimizer\
-                    If 0 then SGD else 1 it is RMSProp')
+#parser.add_argument('--layer',default=3, type=int, help='layer to replace in network' )
+#parser.add_argument('--rank', default = 448, type=int, help='Decomposition rank')
+parser.add_argument('--mode', choices=['None', 'CP', 'Weight'], default='None',
+                        help='Required normalization mode')
+parser.add_argument('--optimizer', choices=['SGD', 'RMSPROP'], default='SGD',
+                        help='Optimizer to use')
 parser.add_argument('--compress_rate', type=int, default=0, metavar='N',
                     help='Compression rate for the network compression')
 parser.set_defaults(augment=True)
@@ -81,39 +81,17 @@ parser.set_defaults(augment=True)
 best_prec1 = 0
 args = parser.parse_args()
 
-# Path for saved weights
-#if args.optimizer == 0:
-#    args.resume = './test_runs/exp1_kernel_sgd/checkpoint.pth.tar'
-#if args.optimizer == 1:
-#args.resume = './test_runs/RMSProp_weight_1/model_best.pth.tar'
-#args.resume = './test_runs/SGD_weight/model_best.pth.tar'
 print(args, flush=True)
 
 print("Tensorboard: ",args.tensorboard, flush=True)
 
-# Summary writer creation
-status = None
-if args.mode == 0:
-    status = 'None'
-elif args.mode == 1:
-    status = 'CPNorm'
-elif args.mode == 2:
-    status = 'WeightNorm'
-used_optim = None
-if args.optimizer == 0:
-    used_optim = 'SGD'
-    args.name= 'SGD_weight_SVHN'
-elif args.optimizer == 1:
-    used_optim = 'RMSProp'
-    args.name= 'RMSProp_weight_svhn'
 
 if args.tensorboard:
     writer = SummaryWriter(comment='_' + args.data_set + '_'
                                    + '_lr_' + str(args.lr)
                                    + '_m_' + str(args.momentum)+ '_'
-                                   + '_rank_' + str(args.rank)+ '_'
-                                   + '_mode_' + status + '_'
-                                   + '_optim_'+ used_optim + '_neumodel_'
+                                   + '_mode_' + args.mode + '_'
+                                   + '_optim_'+ args.optimizer + '_'
                                    + '_compress-rate_' + str(args.compress_rate))
 
 
@@ -190,10 +168,10 @@ def main():
         sum([p.data.nelement() for p in model.parameters()])), flush=True)
     
     # Apply CP norm based on inference/training mode
-    if args.mode == 1:
+    if args.mode == 'CP':
         print("Applying CP Norm", flush=True)
-        print(os.path.isfile(args.resume))
-        if os.path.isfile(args.resume):
+        print(args.resume)
+        if args.resume:
             print('inference/fine tuning mode', flush=True)
             model = apply_CP_Norm(model, True)
         else:
@@ -202,7 +180,7 @@ def main():
         print()
         print("CP Norm application done", flush=True)    
     # Apply weight norm    
-    elif args.mode == 2:
+    elif args.mode == 'Weight':
         print('Applying weight norm', flush=True)
         model = apply_Weight_Norm(model)
         print()
@@ -215,22 +193,22 @@ def main():
 
     # optionally resume from a checkpoint
     if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume), flush=True)
-            checkpoint = torch.load(args.resume)
+        if os.path.isfile(args.name):
+            print("=> loading checkpoint '{}'".format(args.name), flush=True)
+            checkpoint = torch.load(args.name)
             args.start_epoch = checkpoint['epoch']
             args.epochs += args.start_epoch
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])
             print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch']), flush=True)
+                  .format(args.name, checkpoint['epoch']), flush=True)
         else:
-            print("=> no checkpoint found at '{}'".format(args.resume), flush=True)
+            print("=> no checkpoint found at '{}'".format(args.name), flush=True)
 
     cudnn.benchmark = True
 
     # Compression code
-    if args.mode == 1 and args.compress_rate != 0:
+    if args.mode == 'CP' and args.compress_rate != 0:
         print('Running compression.....', flush=True)
         model = apply_compression(model, args.compress_rate)
      
@@ -239,12 +217,13 @@ def main():
         criterion = nn.CrossEntropyLoss().cuda()
     else:
         criterion = nn.CrossEntropyLoss()
-    if args.optimizer == 0:
+    if args.optimizer == 'SGD':
+        print('Momentum: ', args.momentum)
         optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                     momentum=args.momentum,
                                     weight_decay=args.weight_decay,
                                     nesterov=args.nesterov)
-    elif args.optimizer == 1:
+    elif args.optimizer == 'RMSPROP':
         optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr)
     # optimizer = torch.optim.Adam(model.parameters(),
     #                              args.lr,
@@ -381,7 +360,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # compute gradient and do SGD step
         optimizer.zero_grad()
         closs.backward()
-        
         #torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
         optimizer.step()
 
@@ -396,6 +374,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
                       loss=closses, top1=top1))
+    
     # log to TensorBoard
     if args.tensorboard:
         #log_value('train_loss', losses.avg, epoch)

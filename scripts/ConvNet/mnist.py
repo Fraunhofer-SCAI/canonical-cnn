@@ -137,34 +137,23 @@ def main():
                         help='For Saving the current Model')
     parser.add_argument('--resume', action='store_true', default=False,
                         help='Resume training from a stored model.')
-    parser.add_argument('--mode', type=int, default=0, metavar='N', 
-                        help ='0 for normal, 1 for CPnorm and 2 for weightnorm')
-    parser.add_argument('--optimizer', type=int, default=0, metavar='N',
-                        help='0 for SGD, 1 for RMSProp')
+    parser.add_argument('--mode', choices=['None', 'CP', 'Weight'], default='None',
+                        help='Required normalization mode')
+    parser.add_argument('--optimizer', choices=['SGD', 'RMSPROP'], default='SGD',
+                        help='Optimizer to use')
     parser.add_argument('--compress_rate', type=int, default=0, metavar='N',
                         help='Compression rate for the network compression')
+    parser.add_argument('--name', default='./mnist_cnn_rmsprop.pt', 
+                        help='Name to apply saved weights')
     
 
 
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
-    status = ''
-    # Summary writer initalization
-    if args.mode == 0:
-        status = 'None'
-    elif args.mode == 1:
-        status = 'CP-Norm'
-    elif args.mode == 2:
-        status = 'Weight-Norm'
-    opti = None
-    if args.optimizer == 0:
-        opti = 'SGD'
-    elif args.optimizer == 1:
-        opti = 'RMSProp'
     writer = SummaryWriter(comment='_' + 'MNIST' + '_'
                                    + '_lr_' + str(args.lr) + '_'
-                                   + '_mode_'+ status + '_'
-                                   + '_optim_'+ opti+ '_'
+                                   + '_mode_'+ args.mode + '_'
+                                   + '_optim_'+ args.optimizer+ '_'
                                    + '_compress-rate_' + 
                                    str(args.compress_rate))
     torch.manual_seed(args.seed)
@@ -195,28 +184,29 @@ def main():
 
     # Model instantiation
     net_model = None
-    if args.mode == 0:
+    if args.mode == 'None':
         net_model = Net().to(device)
-    elif args.mode == 1:
+    elif args.mode == 'CP':
         net_model = Net(cpnorm=True).to(device)
-    elif args.mode == 2:
+    elif args.mode == 'Weight':
         net_model = Net(wnorm=True).to(device)
     parameter_total = compute_parameter_total(net_model)
     print('new parameter total ###:', parameter_total, flush=True)
     if args.compress_rate != 0:
         writer.add_scalar('params', parameter_total, 0)
 
+    
     # Optimizer creation
-    if args.optimizer == 0:
+    if args.optimizer == 'SGD':
         optimizer = optim.SGD(net_model.parameters(), lr=args.lr)
-    elif args.optimizer == 1:
+    elif args.optimizer == 'RMSPROP':
         optimizer = optim.RMSprop(net_model.parameters(), lr=args.lr)
 
     if args.resume:
-        net_model.load_state_dict(torch.load("./mnist_cnn_rmsprop.pt"))
+        net_model.load_state_dict(torch.load(args.name))
 
     # Compression code
-    if args.mode == 1 and args.compress_rate != 0:
+    if args.mode == 'CP' and args.compress_rate != 0:
         print('Running compression.....', flush=True)
         net_model = apply_compression(net_model, args.compress_rate)
         new_parameter_total = compute_parameter_total(net_model)
@@ -232,7 +222,7 @@ def main():
     # Save parameters in tensorboard and save the model
     writer.close()
     if args.save_model:
-        fname = './mnist_cnn_rmsprop_crate-'+str(args.compress_rate)+'.pt'
+        fname = './mnist_cnn_crate-'+str(args.compress_rate)+'.pt'
         torch.save(net_model.state_dict(), fname)
 
 
