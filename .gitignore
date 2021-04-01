@@ -1,7 +1,7 @@
 *.txt
 *.pt
-scripts/ConvNet/runs
-scripts/ConvNet/data/
+scripts/LeNet/runs
+scripts/LeNet/data/
 scripts/AlexNet/data
 scripts/AlexNet/runs
 scripts/AlexNet/test_runs
@@ -9,6 +9,6 @@ scripts/test_cp_norm.py
 __pycache__/
 models/__pycache__
 scripts/AlexNet/svhn_data
-scripts/ConvNet/.giosaveGkzzha
+scripts/LeNet/.giosaveGkzzha
 
 
