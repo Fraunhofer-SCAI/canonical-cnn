@@ -9,15 +9,27 @@ from mnist import Net
 import sys
 
 def estimate_rank(tensor: torch.Tensor, max_it: int = 2500 ) -> int:
+    """
+    This function is used to estimate the rank of the tensor
+
+    Args:
+        tensor (torch.Tensor): input tensor
+        max_it (int, optional):Maximum iterains. Defaults to 2500.
+
+    Returns:
+        int: rank of tensor
+    """
     count = 0
     for it in range(1680, max_it, 7):
         #print(it, end=' , ')
         try:
             stime = timeit.timeit()
+            # Compute decomposition and reconstruction
             decomposition = parafac(tensor.cpu(), rank=it, init='random', random_state = 0)
             reconstruction = tl.cp_to_tensor(decomposition)
             etime = timeit.timeit()
             reconstruction = reconstruction.to(device)
+            # Compute error and fit
             err = torch.mean(torch.abs(reconstruction - tensor))
             fit = torch.linalg.norm(tensor-reconstruction)/torch.linalg.norm(tensor)
             #print(err.item(), ' , ', fit.item(), ' , Time: ', (etime-stime), flush=True)

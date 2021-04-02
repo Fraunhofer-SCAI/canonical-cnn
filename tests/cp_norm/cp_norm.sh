@@ -8,8 +8,7 @@
 
 
 module load Anaconda3/
-source /home/lveeramacheneni/.bashrc
-conda activate /home/lveeramacheneni/lconda_env
+# Load conda environment
 
-/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/cp_norm/test.py 10
+python tests/cp_norm/test.py 10
 
