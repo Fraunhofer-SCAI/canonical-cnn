@@ -24,15 +24,11 @@ Clone the repository
 ``` bash
  $ git clone https://gitlab.scai.fraunhofer.de/ndv/stud/network-compression.git
 ``` 
-Navigate to scripts and AlexNet/LeNet folder
-``` bash
- $ cd scripts/<AlexNet|LeNet>
-``` 
 ### Normalization 
 
 For training the AlexNet model
 ``` bash
-$ python alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset>
+$ python scripts/AlexNet/alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset>
 ```
 - Optimizer can be 'SGD' or 'RMSPROP' (default: 'SGD')
 - Mode can be (default: 'None')
@@ -46,7 +42,7 @@ $ python alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<
 
 For training the LeNet model
 ``` bash
-$ python mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset> --save-model
+$ python scripts/LeNet/mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset> --save-model
 ```
 - save-model to save the current model
 - Other hyperparameters are the same as discussed above
@@ -68,3 +64,7 @@ For compression on LeNet model
 $ python mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset> --save-model --resume --name=<save model path> --compress_rate=<Compress rate>
 ```
 
+To know more about the hyperparameters (arguments), please use
+``` bash
+$ python <corresponding .py file> --h
+```
