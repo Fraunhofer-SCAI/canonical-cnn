@@ -50,10 +50,9 @@ $ python scripts/LeNet/mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimiz
 ### Compression
 Note: To apply the compression, the saved model is a must.
 
-Open a corresponding model directory in scripts.
 For compression on AlexNet model, 
 ``` bash
-$ python alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset> --compress_rate=<Compress rate> --resume --name=<saved model path>
+$ python scripts/AlexNet/alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset> --compress_rate=<Compress rate> --resume --name=<saved model path>
 ```
 - compress_rate states the percentage of compression
 - name is the path to the saved model
@@ -61,7 +60,7 @@ $ python alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<
 
 For compression on LeNet model
 ``` bash
-$ python mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset> --save-model --resume --name=<save model path> --compress_rate=<Compress rate>
+$  python scripts/LeNet/mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset> --save-model --resume --name=<save model path> --compress_rate=<Compress rate>
 ```
 
 To know more about the hyperparameters (arguments), please use
