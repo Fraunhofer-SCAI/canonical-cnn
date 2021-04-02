@@ -28,7 +28,7 @@ Clone the repository
 
 For training the AlexNet model
 ``` bash
-$ python scripts/AlexNet/alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset>
+$ python scripts/AlexNet/alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --data_set=<dataset>
 ```
 - Optimizer can be 'SGD' or 'RMSPROP' (default: 'SGD')
 - Mode can be (default: 'None')
@@ -42,7 +42,7 @@ $ python scripts/AlexNet/alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<opt
 
 For training the LeNet model
 ``` bash
-$ python scripts/LeNet/mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset> --save-model
+$ python scripts/LeNet/mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --save-model
 ```
 - save-model to save the current model
 - Other hyperparameters are the same as discussed above
@@ -52,7 +52,7 @@ Note: To apply the compression, the saved model is a must.
 
 For compression on AlexNet model, 
 ``` bash
-$ python scripts/AlexNet/alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset> --compress_rate=<Compress rate> --resume --name=<saved model path>
+$ python scripts/AlexNet/alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --data_set=<dataset> --compress_rate=<Compress rate> --resume --name=<saved model path>
 ```
 - compress_rate states the percentage of compression
 - name is the path to the saved model
@@ -60,7 +60,7 @@ $ python scripts/AlexNet/alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<opt
 
 For compression on LeNet model
 ``` bash
-$  python scripts/LeNet/mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --dataset=<dataset> --save-model --resume --name=<save model path> --compress_rate=<Compress rate>
+$  python scripts/LeNet/mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --save-model --resume --name=<save model path> --compress_rate=<Compress rate>
 ```
 
 To know more about the hyperparameters (arguments), please use
