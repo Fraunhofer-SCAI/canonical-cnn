@@ -1,5 +1,7 @@
 *.txt
 *.pt
+*.ipynb
+*.ipynb_checkpoints
 scripts/LeNet/runs/
 scripts/LeNet/data/
 scripts/AlexNet/data/

@@ -20,6 +20,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from torchvision import datasets, transforms
 
 from src.cp_compress import apply_compression
+from src.approxlowrankmodel import tai_decompose
 from models.ConvNet_model import Net
 
 
@@ -144,9 +145,9 @@ def main():
                         help='how many batches to wait before logging training status')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
-    parser.add_argument('--resume', action='store_true', default=False,
+    parser.add_argument('--resume', action='store_true', default=True,
                         help='Resume training from a stored model.')
-    parser.add_argument('--mode', choices=['None', 'CP', 'Weight'], default='None',
+    parser.add_argument('--mode', choices=['None', 'CP', 'Weight', 'Tai'], default='None',
                         help='Required normalization mode')
     parser.add_argument('--optimizer', choices=['SGD', 'RMSPROP'], default='SGD',
                         help='Optimizer to use')
@@ -154,6 +155,8 @@ def main():
                         help='Compression rate for the network compression')
     parser.add_argument('--name', default='./mnist_cnn_rmsprop.pt', 
                         help='Name to apply saved weights')
+    parser.add_argument('--configpath', default=None,
+                        help='Configuration path for decomposition JSON file')
     
 
 
@@ -194,16 +197,18 @@ def main():
     # Model instantiation
     net_model = None
     if args.mode == 'None':
-        net_model = Net()#.to(device)
-        net_model.apply(init_weights)
-        net_model = net_model.to(device)
+        net_model = Net().to(device)
+        #net_model.apply(init_weights)
+        #net_model = net_model.to(device)
 
     elif args.mode == 'CP':
         net_model = Net(cpnorm=True).to(device)
     elif args.mode == 'Weight':
         net_model = Net(wnorm=True)#.to(device)
-        net_model.apply(init_weights)
-        net_model = net_model.to(device)
+        #net_model.apply(init_weights)
+        #net_model = net_model.to(device)
+    else:
+        net_model = Net().to(device)
     parameter_total = compute_parameter_total(net_model)
     print('new parameter total ###:', parameter_total, flush=True)
     if args.compress_rate != 0:
@@ -227,6 +232,14 @@ def main():
         new_parameter_total = compute_parameter_total(net_model)
         print('Compression parameter total:', new_parameter_total)
         writer.add_scalar('params', new_parameter_total, 1)
+    elif args.mode == 'Tai':
+        print()
+        print(net_model.eval())
+        net_model = tai_decompose(net_model, args.configpath)
+        print()
+        print(net_model.eval())
+        print(flush=True)
+        net_model = net_model.to(device)
     else:
         print('No compression is applied', flush=True)
     #scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)

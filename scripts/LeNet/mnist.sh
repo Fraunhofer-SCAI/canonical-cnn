@@ -8,6 +8,6 @@ module load Anaconda3
 source /home/lveeramacheneni/.bashrc
 conda activate /home/lveeramacheneni/lconda_env
 
-/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/scripts/LeNet/mnist.py --lr=1e-3 --epochs=50 --mode='Weight' --optimizer='RMSPROP'
+/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/scripts/LeNet/mnist.py --lr=1e-3 --epochs=10 --mode='Tai' --optimizer='SGD' --configpath='./config.json' --name='./mnist_tai_compression.pt'
 # /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/ConvNet/test.py
 
