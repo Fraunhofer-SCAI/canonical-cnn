@@ -41,6 +41,15 @@ def compute_parameter_total(net):
     return total
 
 
+def init_weights(m):
+    if isinstance(m, nn.Linear):
+        nn.init.eye_(m.weight)
+    elif isinstance(m, nn.Conv2d):
+        for n in range(m.weight.shape[0]):
+            for c in range(m.weight.shape[1]):
+                nn.init.eye_(m.weight[n, c, :, :])
+
+
 def train(args, model, device, train_loader, optimizer, epoch, writer):
     """
     Method to train the model with corresponding dataloader & write 
@@ -160,7 +169,7 @@ def main():
     print(args)
 
     device = torch.device("cuda:0" if use_cuda else "cpu")
-    print('deivce: ', device, flush=True)
+    print('Device: ', device, flush=True)
     # Dataloader creation
     train_kwargs = {'batch_size': args.batch_size}
     test_kwargs = {'batch_size': args.test_batch_size}
@@ -185,11 +194,16 @@ def main():
     # Model instantiation
     net_model = None
     if args.mode == 'None':
-        net_model = Net().to(device)
+        net_model = Net()#.to(device)
+        net_model.apply(init_weights)
+        net_model = net_model.to(device)
+
     elif args.mode == 'CP':
         net_model = Net(cpnorm=True).to(device)
     elif args.mode == 'Weight':
-        net_model = Net(wnorm=True).to(device)
+        net_model = Net(wnorm=True)#.to(device)
+        net_model.apply(init_weights)
+        net_model = net_model.to(device)
     parameter_total = compute_parameter_total(net_model)
     print('new parameter total ###:', parameter_total, flush=True)
     if args.compress_rate != 0:
@@ -203,6 +217,7 @@ def main():
         optimizer = optim.RMSprop(net_model.parameters(), lr=args.lr)
 
     if args.resume:
+        print('Loading the model', flush=True)
         net_model.load_state_dict(torch.load(args.name))
 
     # Compression code
@@ -212,6 +227,8 @@ def main():
         new_parameter_total = compute_parameter_total(net_model)
         print('Compression parameter total:', new_parameter_total)
         writer.add_scalar('params', new_parameter_total, 1)
+    else:
+        print('No compression is applied', flush=True)
     #scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     # Trainig loop
     for epoch in range(1, args.epochs+1):

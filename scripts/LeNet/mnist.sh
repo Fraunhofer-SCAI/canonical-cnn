@@ -5,7 +5,9 @@
 #SBATCH -p gpu
 
 module load Anaconda3
-# Load the conda environment herev
+source /home/lveeramacheneni/.bashrc
+conda activate /home/lveeramacheneni/lconda_env
 
-python scripts/LeNet/mnist.py --lr=1e-3 --epochs=1 --mode='CP' --optimizer='RMSPROP' --compress_rate=25 --name='path to saved model' --resume --save-model
+/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/scripts/LeNet/mnist.py --lr=1e-3 --epochs=50 --mode='Weight' --optimizer='RMSPROP'
+# /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/ConvNet/test.py
 
