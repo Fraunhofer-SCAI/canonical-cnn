@@ -25,6 +25,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
+from src.approxlowrankmodel import tai_decompose
 from src.cp_compress import apply_compression
 from src.cp_norm import cp_norm
 from models.AlexNet_model import AlexNet
@@ -67,13 +68,16 @@ parser.add_argument('--nesterov',
 parser.add_argument('--description',
                     help='Description for overall experiment', type=str,
                     default="None")
+parser.add_argument('--configpath', default=None,
+                        help='Configuration path for decomposition JSON file')
 #parser.add_argument('--layer',default=3, type=int, help='layer to replace in network' )
 #parser.add_argument('--rank', default = 448, type=int, help='Decomposition rank')
-parser.add_argument('--mode', choices=['None', 'CP', 'Weight'], default='None',
+parser.add_argument('--mode', choices=['None', 'CP', 'Weight', 'Tai'], default='None',
                         help='Required normalization mode')
 parser.add_argument('--optimizer', choices=['SGD', 'RMSPROP'], default='SGD',
                         help='Optimizer to use')
-parser.add_argument('--compress_rate', type=int, default=0, metavar='N',
+                        
+parser.add_argument('--compress_rate', type=float, default=0, metavar='N',
                     help='Compression rate for the network compression')
 parser.set_defaults(augment=True)
 
@@ -166,7 +170,20 @@ def main():
     # get the number of model parameters
     print('Number of model parameters before: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])), flush=True)
-    
+
+    if args.resume:
+        if os.path.isfile(args.name):
+            print("=> loading checkpoint '{}'".format(args.name), flush=True)
+            checkpoint = torch.load(args.name)
+            args.start_epoch = checkpoint['epoch']
+            args.epochs += args.start_epoch
+            best_prec1 = checkpoint['best_prec1']
+            model.load_state_dict(checkpoint['state_dict'])
+            print("=> loaded checkpoint '{}' (epoch {})"
+                  .format(args.name, checkpoint['epoch']), flush=True)
+        else:
+            print("=> no checkpoint found at '{}'".format(args.name), flush=True)
+
     # Apply CP norm based on inference/training mode
     if args.mode == 'CP':
         print("Applying CP Norm", flush=True)
@@ -185,25 +202,21 @@ def main():
         model = apply_Weight_Norm(model)
         print()
         print('Weight norm application done', flush=True)
+    elif args.mode == 'Tai':
+        print()
+        print(model.eval())
+        model = tai_decompose(model, args.configpath)
+        print()
+        print(model.eval(), flush=True)
     # for training on multiple GPUs. 
     # Use CUDA_VISIBLE_DEVICES=0,1 to specify which GPUs to use
     # model = torch.nn.DataParallel(model).cuda()
+
+    # optionally resume from a checkpoint
+
     if not args.cpu:
         model = model.cuda()
 
-    # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.name):
-            print("=> loading checkpoint '{}'".format(args.name), flush=True)
-            checkpoint = torch.load(args.name)
-            args.start_epoch = checkpoint['epoch']
-            args.epochs += args.start_epoch
-            best_prec1 = checkpoint['best_prec1']
-            model.load_state_dict(checkpoint['state_dict'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.name, checkpoint['epoch']), flush=True)
-        else:
-            print("=> no checkpoint found at '{}'".format(args.name), flush=True)
 
     cudnn.benchmark = True
 
@@ -242,7 +255,7 @@ def main():
     min_val_loss = np.Inf
     for epoch in range(args.start_epoch, args.epochs):
         print("Epoch: ", epoch)
-        #adjust_learning_rate(optimizer, epoch)
+        # adjust_learning_rate(optimizer, epoch)
         # train for one epoch
         # model = apply_Weight_Norm(model)
         train(train_loader, model, criterion, optimizer, epoch)

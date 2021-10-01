@@ -13,6 +13,7 @@ def apply_lowrank_weights(W, b, conv_v, conv_h):
     # SVD
     U, S, V = torch.linalg.svd(w_matrix, full_matrices=False)
     # v weight
+
     v = U[:, :K]*torch.sqrt(S[:K])
     v = v[:, :K].reshape((C, d1, 1, K)).permute(3, 0, 1, 2)
     # h weight
@@ -33,9 +34,10 @@ def tai_decompose(model, config_file):
     print()
     print('Config file: ')
     print(low_rank_config)
+    print(model.eval())
     for key, value in low_rank_config.items():
         for idx, (name, layer) in enumerate(model.named_modules()):
-            if key in name:
+            if (key in name) and (isinstance(layer, nn.Conv2d)):
                 W, b = layer.weight, layer.bias
                 N, C, d1, d2 = W.shape
                 S1, S2 = layer.stride
@@ -49,7 +51,8 @@ def tai_decompose(model, config_file):
                                                     convlayer_v, convlayer_h)
                 new_convlayers = nn.Sequential(convlayer_v, 
                                                 convlayer_h)
-                setattr(model, name, new_convlayers)
+                #setattr(model, name, new_convlayers)
+                model.features[int(key.split('.')[-1])] = new_convlayers
     return model
 
 

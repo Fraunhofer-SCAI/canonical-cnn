@@ -16,6 +16,7 @@ def compress_via_reparam(layer, compress_rate):
         lmbds = layer.weight_weights
         # Calculate the number of lambds required for compression
         k = int(len(lmbds)*(1-(compress_rate/100)))
+        print(k, len(lmbds))
         # Read all the parameters of corresponding layer
         factor_A, factor_B = layer.weight_A, layer.weight_B
         factor_C, factor_D = layer.weight_C, layer.weight_D
@@ -62,8 +63,11 @@ def apply_compression(model, compress_rate):
     """
     # Iterate over each layer of the model and compress Conv and Linear
     for index, (name, layer) in enumerate(model.named_modules()):
-        if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
+        if (isinstance(layer, torch.nn.Conv2d)) or isinstance(layer, torch.nn.Linear):            # Comment out for comparison with Tai decomposition
+        # if (isinstance(layer, torch.nn.Conv2d)) and ('features.0' not in name):                 # Uncomment for comparison with Tai decomposition
+            print(name, end=' , ')
             layer = compress_via_reparam(layer, compress_rate)
+
     return model
 
 if __name__ == '__main__':
