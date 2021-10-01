@@ -88,9 +88,8 @@ class CPNorm(object):
         recons_weight = tl.cp_to_tensor(cp_layer)
         return recons_weight
 
-
     @staticmethod
-    def apply(module, name: str, rank : int, max_iter : int):
+    def apply(module, name: str, rank : int, max_iter : int, init_method):
         """
         This method computes the CP decomposition of the weight tensor
         using CPPower method and registers the resultant parameters
@@ -129,13 +128,33 @@ class CPNorm(object):
         #                   normalize_factors = False)
         
         # Calculate factors from CPPower
-        CPP = CPPower(rank = rank)
-        factors = CPP.fit_transform(tensor_)
+        if init_method == 'CPD':
+            CPP = CPPower(rank = rank)
+            factors = CPP.fit_transform(tensor_)
         
         # Register factors for cinvolutional layer
         if isinstance(module, torch.nn.Conv2d):
-            A, B = factors[1][0].cpu(), factors[1][1].cpu()
-            C, D = factors[1][2].cpu(), factors[1][3].cpu() 
+            A = torch.empty((weight_tensor.shape[0], rank), requires_grad=True)
+            B = torch.empty((weight_tensor.shape[1], rank), requires_grad=True)
+            C = torch.empty((weight_tensor.shape[2], rank), requires_grad=True)
+            D = torch.empty((weight_tensor.shape[3], rank), requires_grad=True)
+            if init_method == 'CPD':
+                print('####CPD####')
+                A, B = factors[1][0].cpu(), factors[1][1].cpu()
+                C, D = factors[1][2].cpu(), factors[1][3].cpu() 
+            elif init_method == 'KNORMAL':
+                print('####KNORMAL####')
+                A = torch.nn.init.kaiming_normal_(A)
+                B = torch.nn.init.kaiming_normal_(B)
+                C = torch.nn.init.kaiming_normal_(C)
+                D = torch.nn.init.kaiming_normal_(D)
+            elif init_method == 'KUNIFORM':
+                print('####KUNIFORM####')
+                A = torch.nn.init.kaiming_uniform_(A)
+                B = torch.nn.init.kaiming_uniform_(B)
+                C = torch.nn.init.kaiming_uniform_(C)
+                D = torch.nn.init.kaiming_uniform_(D)
+                
             module.register_parameter(name+'_A', Parameter(A))
             module.register_parameter(name+'_B', Parameter(B))
             module.register_parameter(name+'_C', Parameter(C))
@@ -143,7 +162,17 @@ class CPNorm(object):
 
         # Register factors for linear layers
         elif isinstance(module, torch.nn.Linear):
-            A, B = factors[1][0].cpu(), factors[1][1].cpu()
+            A = torch.empty((weight_tensor.shape[0], rank), requires_grad=True)
+            B = torch.empty((weight_tensor.shape[1], rank), requires_grad=True)
+            if init_method == 'CPD':
+                A, B = factors[1][0].cpu(), factors[1][1].cpu()
+            elif init_method == 'KNORMAL':
+                A = torch.nn.init.kaiming_normal_(A)
+                B = torch.nn.init.kaiming_normal_(B)
+            elif init_method == 'KUNIFORM':
+                A = torch.nn.init.kaiming_uniform_(A)
+                B = torch.nn.init.kaiming_uniform_(B)
+
             module.register_parameter(name+'_A', Parameter(A))
             module.register_parameter(name+'_B', Parameter(B))
 
@@ -151,8 +180,12 @@ class CPNorm(object):
         module.register_parameter(name+'_sigma',
                                   Parameter(torch.tensor([1],
                                   dtype=torch.float32)))
-        module.register_parameter(name+'_weights',
-                                  Parameter(factors[0].cpu()))
+        if init_method == 'CPD':
+            module.register_parameter(name+'_weights',
+                                      Parameter(factors[0].cpu()))
+        else:
+            module.register_parameter(name+'_weights',
+                                      Parameter(torch.ones((rank)).cpu()))
 
         # Specify function to compute weight for forward pass 
         setattr(module, name, fn.compute_Weight(module))
@@ -254,7 +287,7 @@ class CPNorm(object):
 
 T_module = TypeVar('T_module', bound=Module)
 def cp_norm(module : T_module, rank : int = None, name : str = 'weight',
-            max_iter : int = 100, inference = False):
+            max_iter : int = 100, inference = False, init_method = 'CPD'):
     """
     Method to apply respective cp norm i.e., training or inference mode
 
@@ -280,5 +313,5 @@ def cp_norm(module : T_module, rank : int = None, name : str = 'weight',
         CPNorm.inference_apply(module, name, rank)
     # If training mode CP decomposition is estimated
     else:
-        CPNorm.apply(module, name, rank, max_iter)
+        CPNorm.apply(module, name, rank, max_iter, init_method)
     return module

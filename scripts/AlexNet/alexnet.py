@@ -76,7 +76,8 @@ parser.add_argument('--mode', choices=['None', 'CP', 'Weight', 'Tai'], default='
                         help='Required normalization mode')
 parser.add_argument('--optimizer', choices=['SGD', 'RMSPROP'], default='SGD',
                         help='Optimizer to use')
-                        
+parser.add_argument('--init_method', choices=['CPD', 'KNORMAL', 'KUNIFORM'], default='CPD', 
+                        help='Initialization method to use')
 parser.add_argument('--compress_rate', type=float, default=0, metavar='N',
                     help='Compression rate for the network compression')
 parser.set_defaults(augment=True)
@@ -96,6 +97,7 @@ if args.tensorboard:
                                    + '_m_' + str(args.momentum)+ '_'
                                    + '_mode_' + args.mode + '_'
                                    + '_optim_'+ args.optimizer + '_'
+                                   + '_ALSinit_'+args.init_method + '_'
                                    + '_compress-rate_' + str(args.compress_rate))
 
 
@@ -306,7 +308,7 @@ def apply_CP_Norm(model, inference_type = False):
     for index, (name, layer) in enumerate(model.named_modules()):
         if isinstance(layer, nn.Conv2d):
             print('Norm on layer: ', name)
-            layer = cp_norm(layer, ranks[c], inference=inference_type)
+            layer = cp_norm(layer, ranks[c], inference=inference_type, init_method=args.init_method)
             c+=1
     # Ranks for linear layers
     linear_ranks = [1024, 512, 10]
