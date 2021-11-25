@@ -18,6 +18,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard.writer import SummaryWriter
 from torchvision import datasets, transforms
+from torchviz import make_dot
 
 from src.cp_compress import apply_compression
 from src.approxlowrankmodel import tai_decompose
@@ -157,6 +158,8 @@ def main():
                         help='Name to apply saved weights')
     parser.add_argument('--configpath', default=None,
                         help='Configuration path for decomposition JSON file')
+    parser.add_argument('--init_method', choices=['CPD', 'KNORMAL', 'KUNIFORM'], default='CPD', 
+                        help='Initialization method to use')
     
 
 
@@ -204,11 +207,17 @@ def main():
     elif args.mode == 'CP':
         net_model = Net(cpnorm=True).to(device)
     elif args.mode == 'Weight':
-        net_model = Net(wnorm=True)#.to(device)
+        net_model = Net(wnorm=True).to(device)
         #net_model.apply(init_weights)
         #net_model = net_model.to(device)
     else:
         net_model = Net().to(device)
+    
+    x = torch.zeros((1, 1, 28, 28))
+    x = x.to(device)
+    y = net_model(x)
+    make_dot(y, params=dict(list(net_model.named_parameters()))).render("attached", format="png")
+
     parameter_total = compute_parameter_total(net_model)
     print('new parameter total ###:', parameter_total, flush=True)
     if args.compress_rate != 0:

@@ -9,5 +9,5 @@ source /home/lveeramacheneni/.bashrc
 conda activate /home/lveeramacheneni/lconda_env
 
 
-CUDA_VISIBLE_DEVICES=7 /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/scripts/AlexNet/alexnet.py --lr=0.01 --epochs=150 --optimizer='SGD' --init_method='KNORMAL' --mode='CP'
+CUDA_VISIBLE_DEVICES=7 /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/scripts/AlexNet/alexnet.py --lr=0.01 --epochs=1 --optimizer='SGD' --init_method='KNORMAL' --mode='CP'
 

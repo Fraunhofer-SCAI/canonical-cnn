@@ -21,7 +21,7 @@ class Net(nn.Module):
     Args:
         
     """
-    def __init__(self, cpnorm=False, wnorm=False):
+    def __init__(self, cpnorm=False, wnorm=False, init_method='CPD'):
         super(Net, self).__init__()
         # Layers initialization
         self.conv1 = nn.Conv2d(1, 32, 3, 1)
@@ -32,10 +32,10 @@ class Net(nn.Module):
         self.fc2 = nn.Linear(128, 10)
         # CP Normalization with full rank
         if cpnorm is True and wnorm is False:
-            self.conv1 = cp_norm(self.conv1, rank=11)
-            self.conv2 = cp_norm(self.conv2, rank=270)
-            self.fc1 = cp_norm(self.fc1, rank=128)
-            self.fc2 = cp_norm(self.fc2, rank=10)
+            self.conv1 = cp_norm(self.conv1, rank=11, init_method = init_method)
+            self.conv2 = cp_norm(self.conv2, rank=270, init_method = init_method)
+            self.fc1 = cp_norm(self.fc1, rank=128, init_method = init_method)
+            self.fc2 = cp_norm(self.fc2, rank=10, init_method = init_method)
         # Weight normalization
         elif cpnorm is False and wnorm is True:
             self.conv1 = weight_norm(self.conv1)

@@ -12,6 +12,7 @@ import sys
 import time
 sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorly as tl
 tl.set_backend("pytorch")
@@ -24,6 +25,7 @@ import torch.utils.data
 from torch.utils.tensorboard.writer import SummaryWriter
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
+from torchviz import make_dot
 
 from src.approxlowrankmodel import tai_decompose
 from src.cp_compress import apply_compression
@@ -97,7 +99,7 @@ if args.tensorboard:
                                    + '_m_' + str(args.momentum)+ '_'
                                    + '_mode_' + args.mode + '_'
                                    + '_optim_'+ args.optimizer + '_'
-                                   + '_ALSinit_'+args.init_method + '_'
+                                   + '_init_'+args.init_method + '_'
                                    + '_compress-rate_' + str(args.compress_rate))
 
 
@@ -185,7 +187,9 @@ def main():
                   .format(args.name, checkpoint['epoch']), flush=True)
         else:
             print("=> no checkpoint found at '{}'".format(args.name), flush=True)
-
+    for name, layer in model.named_modules():
+        if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
+            print('=====> ', name, list(layer.weight.shape))
     # Apply CP norm based on inference/training mode
     if args.mode == 'CP':
         print("Applying CP Norm", flush=True)
@@ -215,11 +219,18 @@ def main():
     # model = torch.nn.DataParallel(model).cuda()
 
     # optionally resume from a checkpoint
-
+    #x = torch.zeros((1, 1, 28, 28))
+    #x = x.cuda()
+    #model = model.cuda()
+    #y = model(x)
+    #make_dot(y, params=dict(list(net_model.named_parameters()))).render("attached", format="png")
+    for name, layer in model.named_modules():
+        if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
+            print('=====> ', name, list(layer.weight.shape))
     if not args.cpu:
         model = model.cuda()
 
-
+    
     cudnn.benchmark = True
 
     # Compression code
