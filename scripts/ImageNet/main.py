@@ -65,7 +65,7 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--pretrained', dest='pretrained', action='store_true', default=True,
+parser.add_argument('--pretrained', dest='pretrained', action='store_true', default=False,
                     help='use pre-trained model')
 parser.add_argument('--world-size', default=-1, type=int,
                     help='number of nodes for distributed training')
@@ -140,8 +140,8 @@ def main_worker(gpu, ngpus_per_node, args):
         print("=> creating model '{}'".format(args.arch))
         model = models.__dict__[args.arch]()
     if args.dataset == 'tinyimagenet':
-        for param in model.parameters():
-            param.requires_grad = False
+        #for param in model.parameters():
+        #    param.requires_grad = False
         model.fc = torch.nn.Linear(512, 200)
     if not torch.cuda.is_available():
         print('using CPU, this will be slow')
