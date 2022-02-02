@@ -78,7 +78,7 @@ parser.add_argument('--mode', choices=['None', 'CP', 'Weight', 'Tai'], default='
                         help='Required normalization mode')
 parser.add_argument('--optimizer', choices=['SGD', 'RMSPROP'], default='SGD',
                         help='Optimizer to use')
-parser.add_argument('--init_method', choices=['CPD', 'KNORMAL', 'KUNIFORM'], default='CPD', 
+parser.add_argument('--init_method', choices=['CPD', 'KNORMAL', 'KUNIFORM', 'MIXED'], default='CPD', 
                         help='Initialization method to use')
 parser.add_argument('--compress_rate', type=float, default=0, metavar='N',
                     help='Compression rate for the network compression')
@@ -89,7 +89,7 @@ best_prec1 = 0
 args = parser.parse_args()
 
 print(args, flush=True)
-
+print(args.seed)
 print("Tensorboard: ",args.tensorboard, flush=True)
 
 
@@ -99,7 +99,7 @@ if args.tensorboard:
                                    + '_m_' + str(args.momentum)+ '_'
                                    + '_mode_' + args.mode + '_'
                                    + '_optim_'+ args.optimizer + '_'
-                                   + '_init_'+args.init_method + '_'
+                                   + '_init_'+args.init_method + '_ohne_sigma_'
                                    + '_compress-rate_' + str(args.compress_rate))
 
 
@@ -120,6 +120,11 @@ def main():
         normalize = transforms.Normalize(
             mean=[x/255.0 for x in [111.6, 113.2, 120.6]],
             std=[x/255.0 for x in [50.5, 51.3, 50.2]])
+    
+    elif args.data_set == 'cifar100':
+        normalize = transforms.Normalize(
+            mean = [0.5071, 0.4867, 0.4408],
+            std = [0.2675, 0.2565, 0.2761])
     else:
         raise ValueError('Unkown data set.')
 
@@ -163,11 +168,23 @@ def main():
             datasets.SVHN('./svhn_data', split='test', download=True,
                          transform=transform_test),
                          batch_size=args.batch_size, shuffle=True, **kwargs)
+    # CIFAR100 dataset
+    elif args.data_set == 'cifar100':
+        train_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR100('./data', train=True, download=True,
+                            transform=transform_train),
+            batch_size=args.batch_size, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR100('./data', train=False, transform=transform_test),
+            batch_size=args.batch_size, shuffle=True, **kwargs)
     else:
         print('Unknown dataset', flush=True)
     # model instantiation
     if args.model == 'AlexNet':
-        model = AlexNet()
+        if args.data_set == 'cifar100':
+            model = AlexNet(num_classes=100)
+        else:
+            model = AlexNet()
     else:
         raise ValueError('Unkown model.')
 
@@ -268,7 +285,7 @@ def main():
     min_val_loss = np.Inf
     for epoch in range(args.start_epoch, args.epochs):
         print("Epoch: ", epoch)
-        # adjust_learning_rate(optimizer, epoch)
+        #adjust_learning_rate(optimizer, epoch)
         # train for one epoch
         # model = apply_Weight_Norm(model)
         train(train_loader, model, criterion, optimizer, epoch)
@@ -513,7 +530,7 @@ class AverageMeter(object):
 
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 after 150 and 225 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 150)) * (0.1 ** (epoch // 225))
+    lr = args.lr * (0.1 ** (epoch // 50)) * (0.1 ** (epoch // 150))
     # log to TensorBoard
     if args.tensorboard:
         # log_value('learning_rate', lr, epoch)

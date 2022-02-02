@@ -2,6 +2,7 @@
 # CP Norm application
 # =====================================================================
 
+from importlib.metadata import requires
 from typing import Any, TypeVar
 
 import tensorly as tl
@@ -10,6 +11,8 @@ from tensorly.decomposition import parafac, CPPower
 import torch
 from torch.nn import Module
 from torch.nn.parameter import Parameter
+
+import numpy as np
 
 
 
@@ -56,6 +59,30 @@ class CPNorm(object):
     def __init__(self, name : str) -> None:
         self.name = name
 
+    
+    def fill_multivariate_normal(self, matrix_):
+        value = matrix_.shape[0]*matrix_.shape[1]
+        n1 = value//2
+        n2 = value-n1
+        x1 = torch.empty(n1)
+        x2 = torch.empty(n2)
+        x1 = torch.nn.init.trunc_normal_(x1, 0, 0.25)
+        x1 = 1-abs(x1)
+        x2 = torch.nn.init.trunc_normal_(x2, -0.125, 0.3)
+        x = torch.cat([x1,x2])
+        perm = torch.randperm(x.shape[0])
+        x = x[perm]
+        filled_matrix = torch.reshape(x, (matrix_.shape))
+        return filled_matrix
+
+    def fill_lambdas(self, lambdas_):
+        value = lambdas_.shape[0]*lambdas_.shape[1]
+        x1 = torch.empty(value)
+        x1 = torch.nn.init.trunc_normal_(x1, 0, 0.5)
+        x1 = abs(x1)+0.2
+        return x1
+
+
     def compute_Weight(self, module: Module) -> Any:
         """
         Method to specify how weight is computed for each forward pass
@@ -84,7 +111,7 @@ class CPNorm(object):
         # Normalize factor matrices
         _, factors = tl.cp_normalize(facs)
         # Multiply sigma to weights for weight calculation
-        cp_layer = (weights*(sigma), factors)
+        cp_layer = (weights*(1), factors)
         recons_weight = tl.cp_to_tensor(cp_layer)
         return recons_weight
 
@@ -154,6 +181,12 @@ class CPNorm(object):
                 B = torch.nn.init.kaiming_uniform_(B)
                 C = torch.nn.init.kaiming_uniform_(C)
                 D = torch.nn.init.kaiming_uniform_(D)
+            elif init_method == 'MIXED':
+                print('####MIXED####')
+                A = torch.nn.init.kaiming_normal_(A)
+                B = torch.nn.init.kaiming_normal_(B)
+                C = fn.fill_multivariate_normal(C)
+                D = fn.fill_multivariate_normal(D)
                 
             module.register_parameter(name+'_A', Parameter(A))
             module.register_parameter(name+'_B', Parameter(B))
@@ -183,6 +216,11 @@ class CPNorm(object):
         if init_method == 'CPD':
             module.register_parameter(name+'_weights',
                                       Parameter(factors[0].cpu()))
+        elif init_method == 'MIXED':
+            lbds = torch.empty((1, rank), requires_grad=True)
+            lbds = fn.fill_lambdas(lbds)
+            module.register_parameter(name+'_weights',
+                                      Parameter(lbds.cpu()))
         else:
             module.register_parameter(name+'_weights',
                                       Parameter(torch.ones((rank)).cpu()))

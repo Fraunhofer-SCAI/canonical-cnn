@@ -57,5 +57,6 @@ class AlexNet(nn.Module):
         x = self.features(x)
         # x = self.avgpool(x)
         x = torch.flatten(x, 1)
+        #print(x.shape, flush=True)
         x = self.classifier(x)
         return x
