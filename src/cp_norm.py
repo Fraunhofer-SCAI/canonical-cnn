@@ -79,7 +79,7 @@ class CPNorm(object):
         value = lambdas_.shape[0]*lambdas_.shape[1]
         x1 = torch.empty(value)
         x1 = torch.nn.init.trunc_normal_(x1, 0, 0.5)
-        x1 = abs(x1)+0.2
+        x1 = abs(x1)+100.0
         return x1
 
 
@@ -109,9 +109,10 @@ class CPNorm(object):
             B = getattr(module, self.name+'_B')
             facs = (weights, [A, B])
         # Normalize factor matrices
-        _, factors = tl.cp_normalize(facs)
+        l, factors = tl.cp_normalize(facs)
+        #weights = (weights+l)/2
         # Multiply sigma to weights for weight calculation
-        cp_layer = (weights*(1), factors)
+        cp_layer = (weights*(sigma), factors)
         recons_weight = tl.cp_to_tensor(cp_layer)
         return recons_weight
 
@@ -216,14 +217,14 @@ class CPNorm(object):
         if init_method == 'CPD':
             module.register_parameter(name+'_weights',
                                       Parameter(factors[0].cpu()))
-        elif init_method == 'MIXED':
-            lbds = torch.empty((1, rank), requires_grad=True)
-            lbds = fn.fill_lambdas(lbds)
-            module.register_parameter(name+'_weights',
-                                      Parameter(lbds.cpu()))
+        #elif init_method == 'MIXED':
+        #    lbds = torch.empty((1, rank), requires_grad=True)
+         #   lbds = fn.fill_lambdas(lbds)
+         #   module.register_parameter(name+'_weights',
+         #                             Parameter(lbds.cpu()))
         else:
             module.register_parameter(name+'_weights',
-                                      Parameter(torch.ones((rank)).cpu()))
+                                      Parameter((torch.randn((rank))).cpu()))
 
         # Specify function to compute weight for forward pass 
         setattr(module, name, fn.compute_Weight(module))

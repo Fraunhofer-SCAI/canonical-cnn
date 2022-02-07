@@ -76,7 +76,7 @@ parser.add_argument('--configpath', default=None,
 #parser.add_argument('--rank', default = 448, type=int, help='Decomposition rank')
 parser.add_argument('--mode', choices=['None', 'CP', 'Weight', 'Tai'], default='None',
                         help='Required normalization mode')
-parser.add_argument('--optimizer', choices=['SGD', 'RMSPROP'], default='SGD',
+parser.add_argument('--optimizer', choices=['SGD', 'RMSPROP', 'ADAM'], default='SGD',
                         help='Optimizer to use')
 parser.add_argument('--init_method', choices=['CPD', 'KNORMAL', 'KUNIFORM', 'MIXED'], default='CPD', 
                         help='Initialization method to use')
@@ -145,7 +145,6 @@ def main():
         normalize
         ])
 
-
     kwargs = {'num_workers': 1, 'pin_memory': True}
     train_loader = None
     val_loader = None
@@ -188,6 +187,7 @@ def main():
     else:
         raise ValueError('Unkown model.')
 
+
     # get the number of model parameters
     print('Number of model parameters before: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])), flush=True)
@@ -204,10 +204,6 @@ def main():
                   .format(args.name, checkpoint['epoch']), flush=True)
         else:
             print("=> no checkpoint found at '{}'".format(args.name), flush=True)
-    for name, layer in model.named_modules():
-        if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
-            print('=====> ', name, list(layer.weight.shape))
-    # Apply CP norm based on inference/training mode
     if args.mode == 'CP':
         print("Applying CP Norm", flush=True)
         print(args.resume)
@@ -268,10 +264,9 @@ def main():
                                     nesterov=args.nesterov)
     elif args.optimizer == 'RMSPROP':
         optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr)
-    # optimizer = torch.optim.Adam(model.parameters(),
-    #                              args.lr,
-    #                              momentum=args.momentum,
-    #                              weight_decay=args.weight_decay)
+    elif args.optimizer == 'ADAM':
+        optimizer = torch.optim.Adam(model.parameters(),
+                                    args.lr)
     print('Number of model parameters after: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])), flush=True)
     no_params = sum([p.data.nelement() for p in model.parameters()])
@@ -283,6 +278,7 @@ def main():
     wait = 0
     patience = 8
     min_val_loss = np.Inf
+    lambdas = []
     for epoch in range(args.start_epoch, args.epochs):
         print("Epoch: ", epoch)
         #adjust_learning_rate(optimizer, epoch)
@@ -484,6 +480,14 @@ def validate(val_loader, model, criterion, epoch):
         writer.add_scalar('val_loss', losses.avg, epoch)
         # log_value('val_acc', top1.avg, epoch)
         writer.add_scalar('val_acc', top1.avg, epoch)
+        for name, layer in model.named_modules():
+            if 'features.8' in name:
+                lbds = layer.weight_weights
+                sigma = layer.weight_sigma
+                #lbds = lbds.cpu().detach().numpy()
+                #lambdas.append(lbds)
+                writer.add_histogram('lambdas_histograms', lbds, epoch)
+                writer.add_scalar('sigma_big', sigma, epoch)
     return top1.avg, losses.avg
 
 
