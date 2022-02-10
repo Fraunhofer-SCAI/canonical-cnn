@@ -7,16 +7,10 @@
 #SBATCH --gres gpu:v100:1
 
 module load Anaconda3
-source /home/lveeramacheneni/.bashrc
-conda activate /home/lveeramacheneni/lconda_env
-#
-#
-/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/scripts/AlexNet/alexnet.py --lr=1e-3 --epochs=150 --optimizer='ADAM' --init_method='CPD' --mode='CP' --data_set='cifar10' --seed=1
+# Load conda environment
 
-
-max=10
+max=11
 for i in `seq 2 $max`
 do
-##    /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/scripts/AlexNet/alexnet.py --lr=1e-4 --epochs=150 --optimizer='RMSPROP' --init_method='KNORMAL' --mode='None' --data_set='cifar100' --seed="$i"
-    CUDA_VISIBLE_DEVICES=3 /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/scripts/AlexNet/alexnet.py --lr=1e-3 --epochs=150 --optimizer='ADAM' --init_method='KUNIFORM' --mode='CP' --data_set='cifar10' --seed="$i"
+    CUDA_VISIBLE_DEVICES=3 python alexnet.py --lr=1e-3 --epochs=150 --optimizer='ADAM' --init_method='KUNIFORM' --mode='CP' --data_set='cifar10' --seed="$i"
 done

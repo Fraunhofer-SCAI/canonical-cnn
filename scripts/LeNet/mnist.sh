@@ -5,9 +5,7 @@
 #SBATCH -p gpu
 
 module load Anaconda3
-source /home/lveeramacheneni/.bashrc
-conda activate /home/lveeramacheneni/lconda_env
+# load conda encironemtn
 
-/home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/scripts/LeNet/mnist.py --lr=1e-3 --epochs=1 --mode='Weight' --optimizer='SGD' --init_method='KUNIFORM'
-# /home/lveeramacheneni/lconda_env/bin/python /home/lveeramacheneni/network-compression/src/ConvNet/test.py
+python mnist.py --lr=1e-3 --epochs=1 --mode='Weight' --optimizer='SGD' --init_method='KUNIFORM'
 

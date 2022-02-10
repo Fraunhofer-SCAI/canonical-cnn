@@ -20,17 +20,13 @@ Install the following required packages
 5. Torchvision - 0.8.1
 6. Tensorboard
 
-Clone the repository
-``` bash
- $ git clone https://gitlab.scai.fraunhofer.de/ndv/stud/network-compression.git
-``` 
 ### Normalization 
 
 For training the AlexNet model
 ``` bash
-$ python scripts/AlexNet/alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --data_set=<dataset>
+$ python scripts/AlexNet/alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --data_set=<dataset> --init_method=<initialization>
 ```
-- Optimizer can be 'SGD' or 'RMSPROP' (default: 'SGD')
+- Optimizer can be 'SGD' or 'RMSPROP' or 'ADAM' (default: 'SGD')
 - Mode can be (default: 'None')
     - 'None' for normal training
     - 'CP' for CP normalization
@@ -38,11 +34,15 @@ $ python scripts/AlexNet/alexnet.py --lr=<lr> --epochs=<epochs> --optimizer=<opt
 - Dataset can be (default: 'cifar-10')
     - 'cifar-10'for CIFAR-10 datset
     - 'SVHN' for Street View House Number dataset
+- Initialization method (default: 'CPD')
+    - 'CPD' for CPPower initialization
+    - 'KNORMAL' for kaming normal initialization
+    - 'KUNIFORM' for kaming uniform initialization
 - An automatic model saving is enabled
 
 For training the LeNet model
 ``` bash
-$ python scripts/LeNet/mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --save-model
+$ python scripts/LeNet/mnist.py --lr=<lr> --epochs=<epochs> --optimizer=<optimizer> --mode=<mode> --save-model --init_method=<initialization>
 ```
 - save-model to save the current model
 - Other hyperparameters are the same as discussed above
